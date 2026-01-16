@@ -98,7 +98,7 @@ function showMainApp() {
     updateProfileAvatar();
     initStickyHeader();
     renderHeatmap();
-    setInterval(updateDateTime, 60000);
+    setInterval(updateDateTime, 1000);
 }
 
 function initStickyHeader() {
@@ -312,7 +312,62 @@ function updateDateTime() {
     const year = now.getFullYear() + 543;
     const hours = now.getHours().toString().padStart(2, '0');
     const minutes = now.getMinutes().toString().padStart(2, '0');
-    document.getElementById('dateTime').textContent = `${day} ${month} ${year} - ${hours}:${minutes} น.`;
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    document.getElementById('dateTime').textContent = `${day} ${month} ${year} - ${hours}:${minutes}:${seconds} น.`;
+    
+    // Update workday progress
+    updateWorkdayProgress();
+}
+
+function updateWorkdayProgress() {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    // Work hours: 8:30 (510 min) to 17:30 (1050 min)
+    const startMinutes = 8 * 60 + 30;  // 8:30 = 510 minutes
+    const endMinutes = 17 * 60 + 30;   // 17:30 = 1050 minutes
+    const totalWorkMinutes = endMinutes - startMinutes; // 540 minutes (9 hours)
+    
+    const progressFill = document.getElementById('progressFill');
+    const progressPercent = document.getElementById('progressPercent');
+    const progressMessage = document.getElementById('progressMessage');
+    
+    if (!progressFill) return;
+    
+    let percent = 0;
+    let message = '';
+    
+    if (currentMinutes < startMinutes) {
+        // Before work
+        percent = 0;
+        message = 'เตรียมตัว! 💪';
+    } else if (currentMinutes >= endMinutes) {
+        // After work
+        percent = 100;
+        message = 'เลิกงานแล้ว! 🎉';
+    } else {
+        // During work hours
+        const elapsedMinutes = currentMinutes - startMinutes;
+        percent = Math.round((elapsedMinutes / totalWorkMinutes) * 100);
+        
+        // Encouraging messages based on progress
+        if (percent < 25) {
+            message = 'เริ่มต้นวันใหม่! ☀️';
+        } else if (percent < 50) {
+            message = 'สู้ๆ นะ! 💪';
+        } else if (percent < 75) {
+            message = 'ผ่านครึ่งทางแล้ว! 🌟';
+        } else if (percent < 90) {
+            message = 'ใกล้ถึงแล้ว! 🚀';
+        } else {
+            message = 'อีกนิดเดียว! 🏁';
+        }
+    }
+    
+    // Update progress bar
+    progressFill.style.width = percent + '%';
+    progressPercent.textContent = percent + '%';
+    progressMessage.textContent = message;
 }
 
 function updateGreeting() {
@@ -923,6 +978,45 @@ function exportData() {
     URL.revokeObjectURL(url);
 
     showToast('ส่งออกข้อมูลสำเร็จ');
+}
+
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            
+            // Validate the imported data structure
+            if (!importedData.data || !importedData.data.user) {
+                showToast('ไฟล์ไม่ถูกต้อง กรุณาใช้ไฟล์สำรองจาก HurryUp');
+                return;
+            }
+
+            // Import the data
+            appData = { ...appData, ...importedData.data };
+            appData.onboardingComplete = true;
+            saveData();
+
+            // Show success message
+            showToast('นำเข้าข้อมูลสำเร็จ!');
+
+            // Redirect to main app
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+
+        } catch (error) {
+            console.error('Import error:', error);
+            showToast('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
+        }
+    };
+    reader.readAsText(file);
+
+    // Reset file input
+    event.target.value = '';
 }
 
 function confirmDeleteAllData() {

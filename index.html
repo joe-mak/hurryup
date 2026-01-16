@@ -52,6 +52,24 @@
                 <h2 class="step-title">ข้อมูลส่วนตัว</h2>
                 <p class="step-description">กรอกข้อมูลพื้นฐานของคุณ</p>
 
+                <!-- Import Data Option -->
+                <div class="import-data-section">
+                    <p class="import-data-text">มีข้อมูลสำรองอยู่แล้ว?</p>
+                    <label class="btn-import-data" for="importDataInput">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        นำเข้าข้อมูล
+                    </label>
+                    <input type="file" id="importDataInput" accept=".json" onchange="importData(event)" style="display:none;">
+                </div>
+
+                <div class="onboarding-divider">
+                    <span>หรือเริ่มต้นใหม่</span>
+                </div>
+
                 <div class="profile-upload">
                     <div class="profile-preview" id="profilePreview">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5">
@@ -233,6 +251,7 @@
         <div class="input-section" id="inputSection">
             <!-- Hero Section - Full Width Banner -->
             <section class="hero-section">
+                <div class="hero-illustration"></div>
                 <section class="greeting-section">
                     <p class="date-time" id="dateTime"></p>
                     <h1 class="greeting" id="greeting"></h1>
@@ -290,7 +309,26 @@
                         </div>
                     </div>
                 </section>
-                <section class="morning-template-section">
+                
+                <!-- Progress & Morning Template Row -->
+                <div class="progress-template-row">
+                    <!-- Workday Progress Widget -->
+                    <div class="workday-widget">
+                        <div class="widget-header">
+                            <span class="widget-label">เวลาทำงาน</span>
+                            <span class="widget-percent" id="progressPercent">0%</span>
+                        </div>
+                        <div class="widget-progress-bar">
+                            <div class="widget-progress-fill" id="progressFill"></div>
+                        </div>
+                        <div class="widget-footer">
+                            <span>8:30 น.</span>
+                            <span class="widget-message" id="progressMessage">สู้ๆ นะ! 💪</span>
+                            <span>17:30 น.</span>
+                        </div>
+                    </div>
+
+                    <section class="morning-template-section">
                     <div class="morning-template-bg"></div>
                     <div class="morning-template-content">
                         <h3 class="morning-template-title">เอาล่ะ วันนี้จะทำอะไรดี</h3>
@@ -315,6 +353,7 @@
                         </button>
                     </div>
                 </section>
+                </div>
 
 
                 <section class="main-card">
