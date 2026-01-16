@@ -1,0 +1,1629 @@
+let appData = {
+    user: {
+        name: '',
+        role: '',
+        workplace: '',
+        profileImage: '',
+        projectLabel: ''  // Custom project label like "รายงานการทำงานประจำวัน เข้า Office (ฝ่ายพัฒนาระบบ)"
+    },
+    projects: [],
+    selectedProjects: [],
+    reports: [],
+    lastReportDate: null,
+    onboardingComplete: false,
+    morningTemplate: '{name}\nงานประจำวันที่ {date}\n- '  // Default morning template
+};
+
+let onboardingProjects = [];
+let currentStep = 1;
+
+let editingProjectId = null;
+let tasksQuill = null;
+let templateQuill = null;
+
+
+
+// Quill toolbar configuration
+const toolbarOptions = [
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+    [{ 'indent': '-1' }, { 'indent': '+1' }],
+    [{ 'color': [] }, { 'background': [] }],
+    ['clean']
+];
+
+function initTasksQuill() {
+    if (typeof Quill !== 'undefined') {
+        if (!tasksQuill) {
+            tasksQuill = new Quill('#tasksEditor', {
+                theme: 'snow',
+                placeholder: 'เทมเพลตจะปรากฏเมื่อเลือกโครงการ...',
+                modules: {
+                    toolbar: toolbarOptions
+                }
+            });
+        }
+        // Show Quill, hide fallback
+        document.getElementById('tasksEditorContainer').style.display = 'block';
+        document.getElementById('tasksTextareaFallback').style.display = 'none';
+    }
+    // If Quill not available, fallback textarea is already visible
+}
+
+function initTemplateQuill() {
+    if (typeof Quill !== 'undefined') {
+        if (!templateQuill) {
+            templateQuill = new Quill('#templateEditor', {
+                theme: 'snow',
+                placeholder: 'โครงการ: {project} ประกอบไปด้วยผลการดำเนินงาน ดังนี้\n1. \n2. \n3.',
+                modules: {
+                    toolbar: toolbarOptions
+                }
+            });
+        }
+        // Show Quill, hide fallback
+        document.getElementById('templateEditorContainer').style.display = 'block';
+        document.getElementById('templateTextareaFallback').style.display = 'none';
+    }
+    // If Quill not available, fallback textarea is already visible
+}
+
+function init() {
+    loadData();
+
+    // Check if onboarding is complete
+    if (appData.onboardingComplete) {
+        showMainApp();
+    } else {
+        showOnboarding();
+    }
+}
+
+function showOnboarding() {
+    document.getElementById('onboardingPage').style.display = 'flex';
+    document.getElementById('mainApp').style.display = 'none';
+    onboardingProjects = [];
+    currentStep = 1;
+    renderOnboardingProjects();
+}
+
+function showMainApp() {
+    document.getElementById('onboardingPage').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    initTasksQuill();
+    updateDateTime();
+    updateGreeting();
+    updateStats();
+    renderProjects();
+    updateProfileAvatar();
+    initStickyHeader();
+    renderHeatmap();
+    setInterval(updateDateTime, 60000);
+}
+
+function initStickyHeader() {
+    const headerWrapper = document.getElementById('headerWrapper');
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 10) {
+            headerWrapper.classList.add('scrolled');
+        } else {
+            headerWrapper.classList.remove('scrolled');
+        }
+    });
+}
+
+function updateProfileAvatar() {
+    const avatars = document.querySelectorAll('.blog-avatar, #blogAvatar');
+    avatars.forEach(avatar => {
+        if (appData.user.profileImage) {
+            avatar.innerHTML = `<img src="${appData.user.profileImage}" alt="Profile">`;
+        }
+    });
+}
+
+// Onboarding Functions
+function goToStep(step) {
+    // Validate current step before proceeding
+    if (step > currentStep) {
+        if (currentStep === 1) {
+            const name = document.getElementById('onboardingName').value.trim();
+            const role = document.getElementById('onboardingRole').value.trim();
+            const workplace = document.getElementById('onboardingWorkplace').value.trim();
+            const projectLabel = document.getElementById('onboardingProjectLabel').value.trim();
+
+            if (!name || !role || !workplace || !projectLabel) {
+                showToast('กรุณากรอกข้อมูลให้ครบถ้วน');
+                return;
+            }
+        }
+    }
+
+    currentStep = step;
+
+    // Update step indicators
+    document.querySelectorAll('.step').forEach((s, index) => {
+        s.classList.remove('active', 'completed');
+        if (index + 1 < step) {
+            s.classList.add('completed');
+        } else if (index + 1 === step) {
+            s.classList.add('active');
+        }
+    });
+
+    document.querySelectorAll('.step-line').forEach((line, index) => {
+        line.classList.toggle('active', index + 1 < step);
+    });
+
+    // Show current step
+    document.querySelectorAll('.onboarding-step').forEach(s => s.classList.remove('active'));
+    document.getElementById(`step${step}`).classList.add('active');
+
+    // Update summary on step 3
+    if (step === 3) {
+        updateOnboardingSummary();
+    }
+}
+
+function handleProfileImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('ขนาดไฟล์ต้องไม่เกิน 2MB');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const imageData = e.target.result;
+        document.getElementById('profilePreview').innerHTML = `<img src="${imageData}" alt="Profile">`;
+        appData.user.profileImage = imageData;
+    };
+    reader.readAsDataURL(file);
+}
+
+function addOnboardingProject() {
+    const name = document.getElementById('onboardingProjectName').value.trim();
+    const url = document.getElementById('onboardingProjectUrl').value.trim();
+
+    if (!name) {
+        showToast('กรุณากรอกชื่อโครงการ');
+        return;
+    }
+
+    const newId = onboardingProjects.length > 0
+        ? Math.max(...onboardingProjects.map(p => p.id)) + 1
+        : 1;
+
+    onboardingProjects.push({
+        id: newId,
+        name: name,
+        taigaUrl: url,
+        template: DEFAULT_TEMPLATE
+    });
+
+    document.getElementById('onboardingProjectName').value = '';
+    document.getElementById('onboardingProjectUrl').value = '';
+
+    renderOnboardingProjects();
+    showToast(`เพิ่มโครงการ "${name}" แล้ว`);
+}
+
+function removeOnboardingProject(id) {
+    onboardingProjects = onboardingProjects.filter(p => p.id !== id);
+    renderOnboardingProjects();
+}
+
+function renderOnboardingProjects() {
+    const container = document.getElementById('onboardingProjectsList');
+    container.innerHTML = '';
+
+    if (onboardingProjects.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">ยังไม่มีโครงการ</p>';
+        return;
+    }
+
+    onboardingProjects.forEach(project => {
+        const item = document.createElement('div');
+        item.className = 'project-item-onboarding';
+        item.innerHTML = `
+                    <div class="project-item-info">
+                        <div class="project-item-name">${escapeHtml(project.name)}</div>
+                        <div class="project-item-url">${escapeHtml(project.taigaUrl || 'ไม่มี URL')}</div>
+                    </div>
+                    <button class="btn-remove" onclick="removeOnboardingProject(${project.id})">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                `;
+        container.appendChild(item);
+    });
+}
+
+function updateOnboardingSummary() {
+    const name = document.getElementById('onboardingName').value.trim();
+    const role = document.getElementById('onboardingRole').value.trim();
+    const workplace = document.getElementById('onboardingWorkplace').value.trim();
+
+    document.getElementById('summaryName').textContent = name || '-';
+    document.getElementById('summaryRole').textContent = role || '-';
+    document.getElementById('summaryWorkplace').textContent = workplace || '-';
+    document.getElementById('summaryProjectsCount').textContent = `${onboardingProjects.length} โครงการ`;
+
+    // Update avatar
+    if (appData.user.profileImage) {
+        document.getElementById('summaryAvatar').innerHTML = `<img src="${appData.user.profileImage}" alt="Profile">`;
+    }
+}
+
+function completeOnboarding() {
+    const name = document.getElementById('onboardingName').value.trim();
+    const role = document.getElementById('onboardingRole').value.trim();
+    const workplace = document.getElementById('onboardingWorkplace').value.trim();
+    const projectLabel = document.getElementById('onboardingProjectLabel').value.trim();
+
+    appData.user.name = name;
+    appData.user.role = role;
+    appData.user.workplace = workplace;
+    appData.user.projectLabel = projectLabel;
+    appData.projects = onboardingProjects;
+    appData.onboardingComplete = true;
+
+    saveData();
+    showMainApp();
+    showToast('ยินดีต้อนรับสู่ อัปบล็อกกัน! 🎉');
+}
+
+function loadData() {
+    const saved = localStorage.getItem('dailyReportData');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.projects) {
+            parsed.projects = parsed.projects.map(p => ({
+                ...p,
+                template: p.template || DEFAULT_TEMPLATE
+            }));
+        }
+        // Ensure user object has all fields
+        if (parsed.user) {
+            if (!parsed.user.profileImage) parsed.user.profileImage = '';
+            if (!parsed.user.projectLabel) parsed.user.projectLabel = '';
+        }
+        // Ensure morningTemplate exists
+        if (!parsed.morningTemplate) {
+            parsed.morningTemplate = '{name}\nงานประจำวันที่ {date}\n- ';
+        }
+        appData = { ...appData, ...parsed };
+    }
+}
+
+function saveData() {
+    localStorage.setItem('dailyReportData', JSON.stringify(appData));
+}
+
+function updateDateTime() {
+    const now = new Date();
+    const thaiMonths = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+    const day = now.getDate();
+    const month = thaiMonths[now.getMonth()];
+    const year = now.getFullYear() + 543;
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    document.getElementById('dateTime').textContent = `${day} ${month} ${year} - ${hours}:${minutes} น.`;
+}
+
+function updateGreeting() {
+    const hour = new Date().getHours();
+    let greetingText = 'สวัสดี';
+    if (hour < 12) greetingText = 'สวัสดีตอนเช้า';
+    else if (hour < 17) greetingText = 'สวัสดีตอนบ่าย';
+    else greetingText = 'สวัสดีตอนเย็น';
+    document.getElementById('greeting').textContent = `${greetingText}คุณ, ${appData.user.name}`;
+    document.getElementById('userRole').textContent = appData.user.role;
+}
+
+function updateStats() {
+    document.getElementById('totalProjects').textContent = appData.projects.length;
+    const currentYear = new Date().getFullYear();
+    const reportsThisYear = appData.reports.filter(r => new Date(r.date).getFullYear() === currentYear).length;
+    document.getElementById('totalReports').textContent = reportsThisYear;
+    const today = new Date().toDateString();
+    const reportedToday = appData.lastReportDate === today;
+    document.getElementById('todayStatus').textContent = reportedToday ? 'เรียบร้อย ✓' : 'ยัง';
+    document.getElementById('todayStatus').style.color = reportedToday ? '#ffffffff' : '#ffffffff';
+}
+
+function renderHeatmap() {
+    const grid = document.getElementById('heatmapGrid');
+    const monthsContainer = document.getElementById('heatmapMonths');
+    grid.innerHTML = '';
+    monthsContainer.innerHTML = '';
+
+    // Fixed year 2026: Jan 1 to Dec 31
+    const year = 2026;
+    const startDate = new Date(year, 0, 1); // Jan 1, 2026
+    const endDate = new Date(year, 11, 31); // Dec 31, 2026
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // Include all of today
+
+    // Build report count map by date string
+    const reportCountMap = {};
+    appData.reports.forEach(report => {
+        const reportDate = new Date(report.date);
+        const dateKey = `${reportDate.getFullYear()}-${reportDate.getMonth()}-${reportDate.getDate()}`;
+        const projectCount = report.projects ? report.projects.length : 1;
+        reportCountMap[dateKey] = (reportCountMap[dateKey] || 0) + projectCount;
+    });
+
+    const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+        'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+    // Jan 1, 2026 is Thursday (day 4)
+    const firstDayOfWeek = startDate.getDay();
+
+    // Total days in year 2026
+    const totalDays = 365;
+    const totalWeeks = Math.ceil((totalDays + firstDayOfWeek) / 7);
+
+    // Create weeks
+    for (let week = 0; week < totalWeeks; week++) {
+        const weekDiv = document.createElement('div');
+        weekDiv.className = 'heatmap-week';
+
+        for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+            const dayIndex = week * 7 + dayOfWeek - firstDayOfWeek;
+            const day = document.createElement('div');
+            day.className = 'heatmap-day';
+
+            if (dayIndex >= 0 && dayIndex < totalDays) {
+                const currentDate = new Date(year, 0, 1 + dayIndex);
+                const dateKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}-${currentDate.getDate()}`;
+                const count = reportCountMap[dateKey] || 0;
+
+                // Check if this date is in the past or today
+                const isPastOrToday = currentDate <= today;
+
+                // Determine level based on count
+                // 1 project = level 1, 2 projects = level 2, 3+ projects = level 3
+                let level = 0;
+                if (count === 1) level = 1;
+                else if (count === 2) level = 2;
+                else if (count >= 3) level = 3;
+
+                if (isPastOrToday) {
+                    day.classList.add(`level-${level}`);
+                } else {
+                    day.classList.add('future');
+                }
+
+                // Create tooltip text
+                const thaiDate = `${currentDate.getDate()} ${thaiMonths[currentDate.getMonth()]} ${currentDate.getFullYear() + 543}`;
+                const tooltipText = count > 0 ? `${thaiDate}: ${count} โครงการ` : `${thaiDate}: ไม่มีข้อมูล`;
+                day.setAttribute('title', tooltipText);
+                day.setAttribute('data-date', dateKey);
+                day.setAttribute('data-count', count);
+                day.setAttribute('data-iso-date', currentDate.toISOString());
+
+                // Add click handler to view report
+                if (count > 0) {
+                    day.style.cursor = 'pointer';
+                    day.addEventListener('click', () => viewReportByDate(currentDate));
+                }
+            } else {
+                // Empty cell before Jan 1 or after Dec 31
+                day.classList.add('empty');
+            }
+
+            weekDiv.appendChild(day);
+        }
+
+        grid.appendChild(weekDiv);
+    }
+
+    // Generate month labels
+    for (let month = 0; month < 12; month++) {
+        const monthStart = new Date(year, month, 1);
+        const dayOfYear = Math.floor((monthStart - startDate) / (1000 * 60 * 60 * 24));
+        const weekOfMonth = Math.floor((dayOfYear + firstDayOfWeek) / 7);
+
+        const monthLabel = document.createElement('span');
+        monthLabel.textContent = thaiMonths[month];
+        monthLabel.style.left = (weekOfMonth * 15) + 'px';
+        monthsContainer.appendChild(monthLabel);
+    }
+}
+
+function viewReportByDate(date) {
+    const dateString = date.toDateString();
+    const report = appData.reports.find(r => new Date(r.date).toDateString() === dateString);
+    
+    if (!report) {
+        showToast('ไม่พบข้อมูลรายงานของวันนี้');
+        return;
+    }
+
+    const thaiMonths = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+    const reportDate = new Date(report.date);
+    const thaiDate = `${reportDate.getDate()} ${thaiMonths[reportDate.getMonth()]} ${reportDate.getFullYear() + 543}`;
+
+    // Build images HTML
+    let imagesHtml = '';
+    if (report.images && report.images.length > 0) {
+        imagesHtml = `
+            <div class="report-images-section">
+                <p class="report-images-label">รูปภาพแนบ (${report.images.length} รูป)</p>
+                <div class="report-images-gallery">
+                    ${report.images.map((img, index) => `
+                        <div class="report-image-item">
+                            <img src="${img}" alt="Image ${index + 1}">
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // Build projects HTML
+    let projectsHtml = '';
+    if (report.projects && report.projects.length > 0) {
+        const projectNames = report.projects.map(pid => {
+            const project = appData.projects.find(p => p.id === pid);
+            return project ? project.name : 'โครงการที่ถูกลบ';
+        });
+        projectsHtml = `<p class="report-projects"><strong>โครงการ:</strong> ${projectNames.join(', ')}</p>`;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.id = 'reportViewModal';
+    overlay.innerHTML = `
+        <div class="modal report-view-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">รายงานวันที่ ${thaiDate}</h3>
+                <button class="modal-close" onclick="closeReportViewModal()">&times;</button>
+            </div>
+            <div class="report-view-content">
+                ${projectsHtml}
+                <div class="report-text-content">
+                    ${report.contentHtml || '<p class="no-content">ไม่มีเนื้อหารายงาน</p>'}
+                </div>
+                ${imagesHtml}
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeReportViewModal();
+    });
+}
+
+function closeReportViewModal() {
+    const modal = document.getElementById('reportViewModal');
+    if (modal) modal.remove();
+}
+
+function renderProjects() {
+    const container = document.getElementById('projectChips');
+    container.innerHTML = '';
+    appData.projects.forEach(project => {
+        const chip = document.createElement('button');
+        chip.className = 'project-chip' + (appData.selectedProjects.includes(project.id) ? ' selected' : '');
+        chip.textContent = project.name;
+        chip.onclick = () => toggleProject(project.id);
+        container.appendChild(chip);
+    });
+    const addChip = document.createElement('button');
+    addChip.className = 'project-chip add-new';
+    addChip.textContent = '+ เพิ่มโครงการ';
+    addChip.onclick = openSettings;
+    container.appendChild(addChip);
+}
+
+function toggleProject(projectId) {
+    const index = appData.selectedProjects.indexOf(projectId);
+    if (index > -1) {
+        appData.selectedProjects.splice(index, 1);
+    } else {
+        appData.selectedProjects.push(projectId);
+    }
+    renderProjects();
+    updateTemplate();
+    updateSubmitButton();
+}
+
+function updateTemplate() {
+    if (appData.selectedProjects.length === 0) {
+        if (tasksQuill) {
+            tasksQuill.setContents([]);
+        } else {
+            document.getElementById('tasksTextareaFallback').value = '';
+        }
+        return;
+    }
+
+    let combinedHtml = '';
+    let combinedText = '';
+    appData.selectedProjects.forEach((projectId, index) => {
+        const project = appData.projects.find(p => p.id === projectId);
+        if (project) {
+            if (index > 0) {
+                combinedHtml += '<p><br></p>';
+                combinedText += '\n\n';
+            }
+            const projectTemplate = project.template || DEFAULT_TEMPLATE;
+            combinedHtml += projectTemplate.replace(/\{project\}/g, project.name);
+            combinedText += stripHtml(projectTemplate).replace(/\{project\}/g, project.name);
+        }
+    });
+
+    if (tasksQuill) {
+        tasksQuill.root.innerHTML = combinedHtml;
+    } else {
+        document.getElementById('tasksTextareaFallback').value = combinedText;
+    }
+}
+
+function updateSubmitButton() {
+    document.getElementById('submitBtn').disabled = appData.selectedProjects.length === 0;
+}
+
+function generateSummary() {
+    // Get content from Quill or fallback textarea
+    let tasksHtml = '';
+    let tasksPlainText = '';
+    if (tasksQuill && tasksQuill.root) {
+        tasksHtml = tasksQuill.root.innerHTML;
+        tasksPlainText = stripHtml(tasksHtml);
+    } else {
+        // Fallback: get from textarea and convert to HTML
+        const fallbackText = document.getElementById('tasksTextareaFallback').value;
+        tasksHtml = '<p>' + fallbackText.replace(/\n/g, '</p><p>') + '</p>';
+        tasksPlainText = fallbackText;
+    }
+
+    const now = new Date();
+    const day = now.getDate();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear() + 543;
+
+    const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+        'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+    // Set profile avatar
+    const blogAvatarEl = document.getElementById('blogAvatar');
+    if (appData.user.profileImage) {
+        blogAvatarEl.innerHTML = `<img src="${appData.user.profileImage}" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    } else {
+        blogAvatarEl.innerHTML = '';
+    }
+
+    // Populate blog header - use projectLabel instead of project names
+    document.getElementById('blogAuthor').textContent = `${appData.user.name} (วันที่: ${day} ${thaiMonths[now.getMonth()]} ${year})`;
+    document.getElementById('blogMeta').textContent = `ตำแหน่ง: ${appData.user.role}`;
+    document.getElementById('blogProject').textContent = `โครงการ: ${appData.user.projectLabel}`;
+
+    // Generate blog content HTML (for display with formatting)
+    const blogContentHtml = `<p><strong>โครงการ :</strong> ${escapeHtml(appData.user.projectLabel)}</p>
+<p><strong>สถานที่ปฏิบัติงาน :</strong> ${escapeHtml(appData.user.workplace)}</p>
+<p><strong>ผู้ปฏิบัติงาน:</strong> ${escapeHtml(appData.user.name)}</p>
+<p><strong>ตำแหน่ง:</strong> ${escapeHtml(appData.user.role)}</p>
+<p><strong>งานประจำวันที่</strong> ${day}/${month}/${year}</p>
+<div style="margin-top: 12px;">${tasksHtml}</div>`;
+
+    // Store plain text version for copying
+    const blogContentPlainText = `โครงการ : ${appData.user.projectLabel}
+สถานที่ปฏิบัติงาน : ${appData.user.workplace}
+ผู้ปฏิบัติงาน: ${appData.user.name}
+ตำแหน่ง: ${appData.user.role}
+งานประจำวันที่ ${day}/${month}/${year}
+
+${tasksPlainText}`;
+
+    const blogContentEl = document.getElementById('blogContent');
+    blogContentEl.innerHTML = blogContentHtml;
+    blogContentEl.dataset.plainText = blogContentPlainText;
+
+    // Generate Taiga URLs
+    const taigaContainer = document.getElementById('taigaOutput');
+    taigaContainer.innerHTML = '';
+    appData.selectedProjects.forEach(projectId => {
+        const project = appData.projects.find(p => p.id === projectId);
+        if (project && project.taigaUrl) {
+            const item = document.createElement('div');
+            item.className = 'taiga-url-card';
+            item.innerHTML = `
+                        <div class="taiga-url-info">
+                            <div class="taiga-project-name">${escapeHtml(project.name)}</div>
+                            <span class="taiga-url-text">${escapeHtml(project.taigaUrl)}</span>
+                        </div>
+                        <button class="taiga-copy-btn" onclick="copyTaigaUrl(this, '${escapeHtml(project.taigaUrl).replace(/'/g, "\\'")}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            <span class="copy-text">คัดลอก</span>
+                        </button>
+                    `;
+            taigaContainer.appendChild(item);
+        }
+    });
+
+    // Show summary section
+    document.getElementById('inputSection').classList.add('hidden');
+    document.getElementById('summarySection').classList.add('active');
+
+    // Show attached images in blog section
+    showBlogImages();
+
+    // 1. Toggle visibility
+    document.getElementById('inputSection').style.display = 'none';
+    document.getElementById('summarySection').style.display = 'block';
+
+    // 2. Scroll to top (Smoothly)
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function htmlToPlainText(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+
+    // Convert lists to text with numbers/bullets
+    temp.querySelectorAll('ol').forEach(ol => {
+        let index = 1;
+        ol.querySelectorAll('li').forEach(li => {
+            li.innerHTML = `${index}. ${li.innerHTML}`;
+            index++;
+        });
+    });
+    temp.querySelectorAll('ul').forEach(ul => {
+        ul.querySelectorAll('li').forEach(li => {
+            li.innerHTML = `• ${li.innerHTML}`;
+        });
+    });
+
+    // Replace <br> and block elements with newlines
+    temp.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+    temp.querySelectorAll('p, li, div').forEach(el => {
+        el.innerHTML = el.innerHTML + '\n';
+    });
+
+    return temp.textContent.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function copyBlogContent(button) {
+    const blogContentEl = document.getElementById('blogContent');
+    const htmlContent = blogContentEl.innerHTML;
+    const plainText = blogContentEl.dataset.plainText || blogContentEl.textContent;
+
+    // Copy as rich text (HTML) so formatting is preserved when pasting
+    const clipboardItem = new ClipboardItem({
+        'text/html': new Blob([htmlContent], { type: 'text/html' }),
+        'text/plain': new Blob([plainText], { type: 'text/plain' })
+    });
+
+    navigator.clipboard.write([clipboardItem]).then(() => {
+        button.classList.add('copied');
+        const textSpan = button.querySelector('.copy-text');
+        textSpan.textContent = 'คัดลอกแล้ว';
+        setTimeout(() => {
+            button.classList.remove('copied');
+            textSpan.textContent = 'คัดลอก';
+        }, 2000);
+    }).catch(err => {
+        // Fallback to plain text if rich text copy fails
+        navigator.clipboard.writeText(plainText).then(() => {
+            button.classList.add('copied');
+            const textSpan = button.querySelector('.copy-text');
+            textSpan.textContent = 'คัดลอกแล้ว';
+            setTimeout(() => {
+                button.classList.remove('copied');
+                textSpan.textContent = 'คัดลอก';
+            }, 2000);
+        });
+    });
+}
+
+function copyTaigaUrl(button, url) {
+    navigator.clipboard.writeText(url).then(() => {
+        button.classList.add('copied');
+        const textSpan = button.querySelector('.copy-text');
+        textSpan.textContent = 'คัดลอกแล้ว';
+        setTimeout(() => {
+            button.classList.remove('copied');
+            textSpan.textContent = 'คัดลอก';
+        }, 2000);
+    });
+}
+
+function createConfetti() {
+    const container = document.createElement('div');
+    container.className = 'confetti-container';
+    document.body.appendChild(container);
+
+    const colors = ['#194987', '#0f3260', '#4CAF50', '#FF9800', '#E91E63', '#9C27B0', '#00BCD4', '#FFEB3B'];
+    const shapes = ['circle', 'square', 'triangle'];
+    const confettiCount = 150;
+
+    for (let i = 0; i < confettiCount; i++) {
+        const confetti = document.createElement('div');
+        const shape = shapes[Math.floor(Math.random() * shapes.length)];
+        confetti.className = `confetti ${shape}`;
+
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        if (shape === 'triangle') {
+            confetti.style.borderBottomColor = color;
+        } else {
+            confetti.style.backgroundColor = color;
+        }
+
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.top = -20 + 'px';
+        confetti.style.animationDelay = Math.random() * 0.5 + 's';
+        confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
+
+        const size = 6 + Math.random() * 10;
+        if (shape !== 'triangle') {
+            confetti.style.width = size + 'px';
+            confetti.style.height = size + 'px';
+        }
+
+        container.appendChild(confetti);
+    }
+
+    // Remove container after animation
+    setTimeout(() => {
+        container.remove();
+    }, 4000);
+}
+
+function showConfirmDialog(title, message, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.innerHTML = `
+                <div class="confirm-dialog">
+                    <div class="confirm-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FF9800" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <h3 class="confirm-title">${title}</h3>
+                    <p class="confirm-message">${message}</p>
+                    <div class="confirm-actions">
+                        <button class="btn-secondary" id="confirmCancel">ยกเลิก</button>
+                        <button class="btn-primary" id="confirmOk">ยืนยัน</button>
+                    </div>
+                </div>
+            `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#confirmCancel').onclick = () => overlay.remove();
+    overlay.querySelector('#confirmOk').onclick = () => {
+        overlay.remove();
+        onConfirm();
+    };
+    overlay.onclick = (e) => {
+        if (e.target === overlay) overlay.remove();
+    };
+}
+
+function hasAlreadySavedToday() {
+    const today = new Date().toDateString();
+    return appData.lastReportDate === today;
+}
+
+function markAsDone() {
+    // Get current blog content
+    const blogContentEl = document.getElementById('blogContent');
+    const blogContentHtml = blogContentEl.innerHTML;
+    const blogContentPlainText = blogContentEl.dataset.plainText || '';
+
+    if (hasAlreadySavedToday()) {
+        showConfirmDialog(
+            'คุณอัปบล็อกของวันนี้ไปแล้ว',
+            'ต้องการยืนยันใหม่อีกครั้งหรือไม่? (จำนวนรายงานจะไม่ถูกเพิ่ม แต่จะอัปเดตเนื้อหา)',
+            () => {
+                // Update existing report for today
+                const today = new Date().toDateString();
+                const existingReport = appData.reports.find(r => new Date(r.date).toDateString() === today);
+                if (existingReport) {
+                    existingReport.contentHtml = blogContentHtml;
+                    existingReport.contentText = blogContentPlainText;
+                    existingReport.images = taskImages.map(img => img.data);
+                    existingReport.projects = [...appData.selectedProjects];
+                    saveData();
+                }
+
+                appData.selectedProjects = [];
+                taskImages = []; // Clear images after saving
+                createConfetti();
+                goBack();
+
+                document.getElementById('summarySection').style.display = 'none';
+                document.getElementById('inputSection').style.display = 'block';
+
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+                showToast('อัปเดตสำเร็จ! ✓');
+            }
+        );
+        return;
+    }
+
+    const today = new Date().toDateString();
+    appData.lastReportDate = today;
+    appData.reports.push({
+        date: new Date().toISOString(),
+        projects: [...appData.selectedProjects],
+        contentHtml: blogContentHtml,
+        contentText: blogContentPlainText,
+        images: taskImages.map(img => img.data)
+    });
+    saveData();
+    appData.selectedProjects = [];
+    taskImages = []; // Clear images after saving
+
+    // Trigger confetti effect
+    createConfetti();
+
+    goBack();
+    updateStats();
+    renderHeatmap();
+    renderTaskImageGallery(); // Clear the image gallery display
+    showToast('บันทึกสำเร็จ! อัปบล็อกแล้ววันนี้ ✓');
+}
+
+function exportData() {
+    // Create export data object with timestamp
+    const exportObj = {
+        exportDate: new Date().toISOString(),
+        appVersion: '1.0',
+        data: appData
+    };
+
+    // Convert to JSON string with pretty formatting
+    const jsonString = JSON.stringify(exportObj, null, 2);
+
+    // Create blob and download link
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    // Generate filename with date and time
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+    const filename = `hurryup-backup-${dateStr}_${timeStr}.json`;
+
+    // Create temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Clean up URL object
+    URL.revokeObjectURL(url);
+
+    showToast('ส่งออกข้อมูลสำเร็จ');
+}
+
+function confirmDeleteAllData() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.innerHTML = `
+                <div class="confirm-dialog">
+                    <div class="confirm-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c00" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                    </div>
+                    <h3 class="confirm-title">ยืนยันการลบข้อมูลทั้งหมด</h3>
+                    <p class="confirm-message">ข้อมูลทั้งหมดของคุณจะถูกลบอย่างถาวร รวมถึงโปรไฟล์ โครงการ และประวัติการรายงาน คุณแน่ใจหรือไม่?</p>
+                    <div class="confirm-actions">
+                        <button class="btn-secondary" id="confirmCancel">ยกเลิก</button>
+                        <button class="btn-primary" id="confirmOk" style="background: #c00;">ลบข้อมูล</button>
+                    </div>
+                </div>
+            `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#confirmCancel').onclick = () => overlay.remove();
+    overlay.querySelector('#confirmOk').onclick = () => {
+        overlay.remove();
+        deleteAllData();
+    };
+    overlay.onclick = (e) => {
+        if (e.target === overlay) overlay.remove();
+    };
+}
+
+function deleteAllData() {
+    // Clear localStorage
+    localStorage.removeItem('dailyReportData');
+
+    // Reset appData to initial state
+    appData = {
+        user: {
+            name: '',
+            role: '',
+            workplace: '',
+            profileImage: '',
+            projectLabel: ''
+        },
+        projects: [],
+        selectedProjects: [],
+        reports: [],
+        lastReportDate: null,
+        onboardingComplete: false
+    };
+
+    // Close settings modal
+    closeSettings();
+
+    // Show onboarding page
+    showOnboarding();
+
+    showToast('ลบข้อมูลทั้งหมดเรียบร้อยแล้ว');
+}
+
+function goBack() {
+    document.getElementById('inputSection').classList.remove('hidden');
+    document.getElementById('summarySection').classList.remove('active');
+    renderProjects();
+    updateTemplate();
+    updateSubmitButton();
+
+    // 1. Switch visibility
+    document.getElementById('summarySection').style.display = 'none';
+    document.getElementById('inputSection').style.display = 'block';
+
+    // 2. Scroll to the top of the page
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+function handleSettingsProfileImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('ขนาดไฟล์ต้องไม่เกิน 2MB');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const imageData = e.target.result;
+        document.getElementById('settingsProfilePreview').innerHTML = `<img src="${imageData}" alt="Profile" style="width:100%;height:100%;object-fit:cover;">`;
+        appData.user.profileImage = imageData;
+        saveData();
+        showToast('อัปเดตรูปโปรไฟล์แล้ว');
+    };
+    reader.readAsDataURL(file);
+}
+
+function openSettings() {
+    document.getElementById('settingsModal').classList.add('active');
+    // Initialize template editor when modal opens
+    setTimeout(() => {
+        initTemplateQuill();
+        resetProjectForm();
+    }, 100);
+    document.getElementById('settingsUserName').value = appData.user.name;
+    document.getElementById('settingsUserRole').value = appData.user.role;
+    document.getElementById('settingsWorkplace').value = appData.user.workplace;
+    document.getElementById('settingsProjectLabel').value = appData.user.projectLabel || '';
+
+    // Show current profile image
+    if (appData.user.profileImage) {
+        document.getElementById('settingsProfilePreview').innerHTML = `<img src="${appData.user.profileImage}" alt="Profile" style="width:100%;height:100%;object-fit:cover;">`;
+    }
+
+    renderProjectList();
+}
+
+function closeSettings() {
+    document.getElementById('settingsModal').classList.remove('active');
+    resetProjectForm();
+}
+
+function saveUserSettings() {
+    appData.user.name = document.getElementById('settingsUserName').value || 'ผู้ใช้';
+    appData.user.role = document.getElementById('settingsUserRole').value || 'พนักงาน';
+    appData.user.workplace = document.getElementById('settingsWorkplace').value || 'สำนักงาน';
+    appData.user.projectLabel = document.getElementById('settingsProjectLabel').value || '';
+    saveData();
+    updateGreeting();
+    showToast('บันทึกข้อมูลส่วนตัวแล้ว');
+}
+
+function stripHtml(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+}
+
+function renderProjectList() {
+    const container = document.getElementById('projectList');
+    container.innerHTML = '';
+    appData.projects.forEach(project => {
+        const item = document.createElement('div');
+        item.className = 'project-item';
+        const templatePreview = stripHtml(project.template || DEFAULT_TEMPLATE).substring(0, 60) + '...';
+        item.innerHTML = `
+                    <div class="project-info">
+                        <div class="project-name">${escapeHtml(project.name)}</div>
+                        <div class="project-url">${escapeHtml(project.taigaUrl || '-')}</div>
+                        <div class="project-template-preview">เทมเพลต: ${escapeHtml(templatePreview)}</div>
+                    </div>
+                    <div class="project-actions">
+                        <button class="btn-edit" onclick="editProject(${project.id})">แก้ไข</button>
+                        <button class="btn-danger" onclick="deleteProject(${project.id})">ลบ</button>
+                    </div>
+                `;
+        container.appendChild(item);
+    });
+    if (appData.projects.length === 0) {
+        container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">ยังไม่มีโครงการ</p>';
+    }
+}
+
+function resetProjectForm() {
+    editingProjectId = null;
+    document.getElementById('projectFormTitle').textContent = 'เพิ่มโครงการใหม่';
+    document.getElementById('newProjectName').value = '';
+    document.getElementById('newProjectUrl').value = '';
+    if (templateQuill) {
+        templateQuill.setContents([]);
+    } else {
+        document.getElementById('templateTextareaFallback').value = '';
+    }
+    document.getElementById('saveProjectBtn').textContent = 'เพิ่มโครงการ';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+}
+
+function editProject(projectId) {
+    const project = appData.projects.find(p => p.id === projectId);
+    if (!project) return;
+    editingProjectId = projectId;
+    document.getElementById('projectFormTitle').textContent = 'แก้ไขโครงการ';
+    document.getElementById('newProjectName').value = project.name;
+    document.getElementById('newProjectUrl').value = project.taigaUrl || '';
+    if (templateQuill) {
+        templateQuill.root.innerHTML = project.template || DEFAULT_TEMPLATE;
+    } else {
+        document.getElementById('templateTextareaFallback').value = stripHtml(project.template || DEFAULT_TEMPLATE);
+    }
+    document.getElementById('saveProjectBtn').textContent = 'บันทึกการแก้ไข';
+    document.getElementById('cancelEditBtn').style.display = 'inline-block';
+    document.getElementById('projectFormTitle').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelEditProject() {
+    resetProjectForm();
+}
+
+function saveProject() {
+    const name = document.getElementById('newProjectName').value.trim();
+    const url = document.getElementById('newProjectUrl').value.trim();
+    let template;
+    if (templateQuill) {
+        template = templateQuill.root.innerHTML.trim() || DEFAULT_TEMPLATE;
+    } else {
+        const fallbackText = document.getElementById('templateTextareaFallback').value.trim();
+        template = fallbackText ? ('<p>' + fallbackText.replace(/\n/g, '</p><p>') + '</p>') : DEFAULT_TEMPLATE;
+    }
+
+    if (!name) {
+        showToast('กรุณากรอกชื่อโครงการ');
+        return;
+    }
+
+    if (editingProjectId !== null) {
+        const projectIndex = appData.projects.findIndex(p => p.id === editingProjectId);
+        if (projectIndex > -1) {
+            appData.projects[projectIndex] = {
+                ...appData.projects[projectIndex],
+                name: name,
+                taigaUrl: url,
+                template: template
+            };
+            showToast(`แก้ไขโครงการ "${name}" แล้ว`);
+        }
+    } else {
+        const newId = appData.projects.length > 0
+            ? Math.max(...appData.projects.map(p => p.id)) + 1
+            : 1;
+        appData.projects.push({
+            id: newId,
+            name: name,
+            taigaUrl: url,
+            template: template
+        });
+        showToast(`เพิ่มโครงการ "${name}" แล้ว`);
+    }
+
+    saveData();
+    renderProjectList();
+    renderProjects();
+    updateStats();
+    resetProjectForm();
+}
+
+function deleteProject(projectId) {
+    const project = appData.projects.find(p => p.id === projectId);
+    if (!project) {
+        showToast('ไม่พบโครงการ');
+        return;
+    }
+    if (confirm(`ต้องการลบโครงการ "${project.name}" หรือไม่?`)) {
+        appData.projects = appData.projects.filter(p => p.id !== projectId);
+        appData.selectedProjects = appData.selectedProjects.filter(id => id !== projectId);
+        saveData();
+        renderProjectList();
+        renderProjects();
+        updateStats();
+        updateTemplate();
+        if (editingProjectId === projectId) {
+            resetProjectForm();
+        }
+        showToast('ลบโครงการแล้ว');
+    }
+}
+
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+document.getElementById('settingsModal').addEventListener('click', function (e) {
+    if (e.target === this) closeSettings();
+});
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', init);
+
+function copyMorningTemplate(btn) {
+    const today = new Date().toLocaleDateString('th-TH', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+
+    // Use the saved template or default
+    const template = appData.morningTemplate || '{name}\nงานประจำวันที่ {date}\n- ';
+    
+    // Replace variables with actual values
+    const name = appData.user.name || "{ชื่อ-นามสกุล}";
+    const role = appData.user.role || "{ตำแหน่ง}";
+    const workplace = appData.user.workplace || "{สถานที่ปฏิบัติงาน}";
+    
+    const templateText = template
+        .replace(/\{name\}/g, name)
+        .replace(/\{date\}/g, today)
+        .replace(/\{role\}/g, role)
+        .replace(/\{workplace\}/g, workplace);
+
+    navigator.clipboard.writeText(templateText).then(() => {
+        // Reuse the feedback logic (Change icon and text)
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span class="copy-text">คัดลอกแล้ว!</span>
+        `;
+        btn.classList.add('copied');
+
+        // Revert back after 2 seconds
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('copied');
+        }, 2000);
+    });
+}
+
+// Morning Template Modal Functions
+function openMorningTemplateModal() {
+    const modal = document.getElementById('morningTemplateModal');
+    modal.classList.add('active');
+    
+    // Load current template into textarea
+    const textarea = document.getElementById('morningTemplateText');
+    textarea.value = appData.morningTemplate || '{name}\nงานประจำวันที่ {date}\n- ';
+    
+    // Update preview
+    updateMorningTemplatePreview();
+    
+    // Add input listener for live preview
+    textarea.addEventListener('input', updateMorningTemplatePreview);
+}
+
+function closeMorningTemplateModal() {
+    const modal = document.getElementById('morningTemplateModal');
+    modal.classList.remove('active');
+    
+    // Remove input listener
+    const textarea = document.getElementById('morningTemplateText');
+    textarea.removeEventListener('input', updateMorningTemplatePreview);
+}
+
+function updateMorningTemplatePreview() {
+    const textarea = document.getElementById('morningTemplateText');
+    const preview = document.getElementById('morningTemplatePreview');
+    const template = textarea.value;
+    
+    const today = new Date().toLocaleDateString('th-TH', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+    
+    const name = appData.user.name || "สมชาย ใจดี";
+    const role = appData.user.role || "เจ้าหน้าที่พัฒนาโปรแกรม";
+    const workplace = appData.user.workplace || "ศูนย์เทคโนโลยีสารสนเทศ";
+    
+    const previewText = template
+        .replace(/\{name\}/g, name)
+        .replace(/\{date\}/g, today)
+        .replace(/\{role\}/g, role)
+        .replace(/\{workplace\}/g, workplace);
+    
+    preview.textContent = previewText;
+}
+
+function insertVariable(variable) {
+    const textarea = document.getElementById('morningTemplateText');
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const variableText = `{${variable}}`;
+    
+    textarea.value = text.substring(0, start) + variableText + text.substring(end);
+    textarea.focus();
+    textarea.selectionStart = textarea.selectionEnd = start + variableText.length;
+    
+    updateMorningTemplatePreview();
+}
+
+function saveMorningTemplate() {
+    const textarea = document.getElementById('morningTemplateText');
+    appData.morningTemplate = textarea.value;
+    saveData();
+    closeMorningTemplateModal();
+    showToast('บันทึกเทมเพลตรายงานตอนเช้าแล้ว');
+}
+
+function resetMorningTemplate() {
+    const defaultTemplate = '{name}\nงานประจำวันที่ {date}\n- ';
+    document.getElementById('morningTemplateText').value = defaultTemplate;
+    updateMorningTemplatePreview();
+}
+
+// Close modal when clicking outside
+document.getElementById('morningTemplateModal')?.addEventListener('click', function (e) {
+    if (e.target === this) closeMorningTemplateModal();
+});
+
+// Settings Tab Functions
+function switchSettingsTab(tabName) {
+    // Update nav items
+    document.querySelectorAll('.settings-nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.tab === tabName) {
+            item.classList.add('active');
+        }
+    });
+
+    // Update tab content
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    if (tabName === 'personal') {
+        document.getElementById('tabPersonal').classList.add('active');
+    } else if (tabName === 'projects') {
+        document.getElementById('tabProjects').classList.add('active');
+    }
+
+    // Scroll content area back to top
+    const contentArea = document.querySelector('.settings-content');
+    if (contentArea) {
+        contentArea.scrollTop = 0;
+    }
+}
+
+function saveCurrentTab() {
+    const activeTab = document.querySelector('.settings-nav-item.active');
+    if (activeTab && activeTab.dataset.tab === 'personal') {
+        saveUserSettings();
+    } else if (activeTab && activeTab.dataset.tab === 'projects') {
+        saveProject();
+    }
+    closeSettings();
+}
+
+// ==========================================
+// Image Paste/Copy Functions for Task Editor
+// ==========================================
+
+let taskImages = []; // Array to store multiple images
+
+// Initialize image paste area
+function initTaskImagePaste() {
+    const pasteArea = document.getElementById('taskImagePasteArea');
+    if (!pasteArea) return;
+
+    // Click to select file
+    pasteArea.addEventListener('click', (e) => {
+        if (e.target.closest('.image-remove-btn')) return;
+        document.getElementById('taskImageInput').click();
+    });
+
+    // Drag and drop
+    pasteArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        pasteArea.classList.add('dragover');
+    });
+
+    pasteArea.addEventListener('dragleave', () => {
+        pasteArea.classList.remove('dragover');
+    });
+
+    pasteArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        pasteArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        for (let file of files) {
+            if (file.type.startsWith('image/')) {
+                processTaskImage(file);
+            }
+        }
+    });
+
+    // Global paste listener for the page
+    document.addEventListener('paste', handleGlobalPaste);
+}
+
+function handleGlobalPaste(e) {
+    // Check if we're in the task editor area or modal is not open
+    const settingsModal = document.getElementById('settingsModal');
+    const morningModal = document.getElementById('morningTemplateModal');
+    
+    if (settingsModal.classList.contains('active') || morningModal.classList.contains('active')) {
+        return; // Don't handle paste when modals are open
+    }
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let item of items) {
+        if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            processTaskImage(file);
+        }
+    }
+}
+
+function handleTaskImageSelect(event) {
+    const files = event.target.files;
+    for (let file of files) {
+        if (file.type.startsWith('image/')) {
+            processTaskImage(file);
+        }
+    }
+    // Reset input so same file can be selected again
+    event.target.value = '';
+}
+
+function processTaskImage(file) {
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('ขนาดไฟล์ต้องไม่เกิน 2MB');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const imageData = e.target.result;
+        const imageId = Date.now() + Math.random().toString(36).substr(2, 9);
+        taskImages.push({ id: imageId, data: imageData });
+        renderTaskImageGallery();
+        showToast('เพิ่มรูปภาพแล้ว');
+    };
+    reader.readAsDataURL(file);
+}
+
+function renderTaskImageGallery() {
+    const gallery = document.getElementById('taskImageGallery');
+    gallery.innerHTML = '';
+
+    taskImages.forEach((image, index) => {
+        const item = document.createElement('div');
+        item.className = 'image-gallery-item';
+        item.innerHTML = `
+            <img src="${image.data}" alt="Image ${index + 1}">
+            <button class="image-remove-btn" onclick="removeTaskImage('${image.id}')" title="ลบรูปภาพ">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            <button class="image-copy-btn" onclick="copySingleImage('${image.id}')" title="คัดลอกรูปภาพ">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+            </button>
+        `;
+        gallery.appendChild(item);
+    });
+}
+
+function removeTaskImage(imageId) {
+    taskImages = taskImages.filter(img => img.id !== imageId);
+    renderTaskImageGallery();
+    showToast('ลบรูปภาพแล้ว');
+}
+
+async function copySingleImage(imageId) {
+    const image = taskImages.find(img => img.id === imageId);
+    if (!image) return;
+
+    try {
+        const blob = await convertImageToBlob(image.data);
+        await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+        ]);
+        showToast('คัดลอกรูปภาพแล้ว');
+    } catch (err) {
+        console.error('Failed to copy image:', err);
+        // Fallback: open image in new tab for manual copy
+        showToast('ไม่สามารถคัดลอกอัตโนมัติได้ กรุณาคลิกขวาที่รูปเพื่อคัดลอก');
+    }
+}
+
+// Convert image data to PNG blob for clipboard compatibility
+function convertImageToBlob(imageData) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    resolve(blob);
+                } else {
+                    reject(new Error('Failed to convert image to blob'));
+                }
+            }, 'image/png');
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = imageData;
+    });
+}
+
+// ==========================================
+// Image Display in Summary/Blog Section
+// ==========================================
+
+function showBlogImages() {
+    const blogImageGallery = document.getElementById('blogImageGallery');
+
+    if (taskImages.length > 0) {
+        blogImageGallery.style.display = 'flex';
+        blogImageGallery.innerHTML = '';
+        
+        taskImages.forEach((image, index) => {
+            const item = document.createElement('div');
+            item.className = 'blog-image-item';
+            item.innerHTML = `
+                <img src="${image.data}" alt="Attached Image ${index + 1}">
+                <button class="image-copy-btn" onclick="copyBlogImageById('${image.id}', this)" title="คัดลอกรูปภาพ">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                </button>
+            `;
+            blogImageGallery.appendChild(item);
+        });
+    } else {
+        blogImageGallery.style.display = 'none';
+        blogImageGallery.innerHTML = '';
+    }
+}
+
+async function copyBlogImageById(imageId, btn) {
+    const image = taskImages.find(img => img.id === imageId);
+    if (!image) return;
+
+    try {
+        const blob = await convertImageToBlob(image.data);
+        await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+        ]);
+
+        // Show feedback
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.classList.remove('copied');
+        }, 1500);
+        
+        showToast('คัดลอกรูปภาพแล้ว');
+    } catch (err) {
+        console.error('Failed to copy image:', err);
+        showToast('ไม่สามารถคัดลอกรูปภาพได้');
+    }
+}
+
+async function copyAllBlogImages(btn) {
+    if (taskImages.length === 0) {
+        showToast('ไม่มีรูปภาพให้คัดลอก');
+        return;
+    }
+
+    // Copy first image (clipboard API limitation - can only copy one image at a time)
+    try {
+        const blob = await convertImageToBlob(taskImages[0].data);
+        await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+        ]);
+
+        // Show feedback
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span class="copy-text">คัดลอกแล้ว!</span>
+        `;
+        btn.classList.add('copied');
+
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('copied');
+        }, 2000);
+
+        if (taskImages.length > 1) {
+            showToast(`คัดลอกรูปแรกแล้ว (คลิกที่รูปอื่นเพื่อคัดลอกทีละรูป)`);
+        } else {
+            showToast('คัดลอกรูปภาพแล้ว');
+        }
+    } catch (err) {
+        console.error('Failed to copy image:', err);
+        showToast('ไม่สามารถคัดลอกรูปภาพได้');
+    }
+}
+
+// Initialize on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+    initTaskImagePaste();
+});
