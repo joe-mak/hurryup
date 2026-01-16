@@ -575,7 +575,7 @@ function renderProjects() {
     const addChip = document.createElement('button');
     addChip.className = 'project-chip add-new';
     addChip.textContent = '+ เพิ่มโครงการ';
-    addChip.onclick = openSettings;
+    addChip.onclick = () => openSettings('projects');
     container.appendChild(addChip);
 }
 
@@ -696,13 +696,24 @@ ${tasksPlainText}`;
                             <div class="taiga-project-name">${escapeHtml(project.name)}</div>
                             <span class="taiga-url-text">${escapeHtml(project.taigaUrl)}</span>
                         </div>
-                        <button class="taiga-copy-btn" onclick="copyTaigaUrl(this, '${escapeHtml(project.taigaUrl).replace(/'/g, "\\'")}')">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                            </svg>
-                            <span class="copy-text">คัดลอก</span>
-                        </button>
+                        <div class="taiga-btn-group">
+                            <button class="taiga-copy-btn" onclick="copyTaigaTitle(this, '${escapeHtml(project.name).replace(/'/g, "\\'")}')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 7V4a2 2 0 0 1 2-2h8.5L20 7.5V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <path d="M5 12H1v4h4v-4z"></path>
+                                    <path d="M9 14h2"></path>
+                                </svg>
+                                <span class="copy-text">ชื่อ</span>
+                            </button>
+                            <button class="taiga-copy-btn" onclick="copyTaigaUrl(this, '${escapeHtml(project.taigaUrl).replace(/'/g, "\\'")}')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                                </svg>
+                                <span class="copy-text">URL</span>
+                            </button>
+                        </div>
                     `;
             taigaContainer.appendChild(item);
         }
@@ -761,8 +772,53 @@ function htmlToPlainText(html) {
 
 function copyBlogContent(button) {
     const blogContentEl = document.getElementById('blogContent');
-    const htmlContent = blogContentEl.innerHTML;
-    const plainText = blogContentEl.dataset.plainText || blogContentEl.textContent;
+    
+    // Clone the content to modify for copying
+    const clonedContent = blogContentEl.cloneNode(true);
+    
+    // Convert flat list with ql-indent classes to nested lists
+    clonedContent.querySelectorAll('ul, ol').forEach(list => {
+        const items = Array.from(list.children);
+        let currentLevel = 0;
+        let listStack = [list];
+        
+        items.forEach(item => {
+            if (item.tagName !== 'LI') return;
+            
+            // Get indent level from class
+            let itemLevel = 0;
+            for (let i = 1; i <= 8; i++) {
+                if (item.classList.contains(`ql-indent-${i}`)) {
+                    itemLevel = i;
+                    item.classList.remove(`ql-indent-${i}`);
+                    break;
+                }
+            }
+            
+            if (itemLevel > currentLevel) {
+                // Need to nest deeper
+                for (let i = currentLevel; i < itemLevel; i++) {
+                    const newList = document.createElement(list.tagName);
+                    const lastItem = listStack[listStack.length - 1].lastElementChild;
+                    if (lastItem) {
+                        lastItem.appendChild(newList);
+                        listStack.push(newList);
+                    }
+                }
+            } else if (itemLevel < currentLevel) {
+                // Go back up
+                for (let i = currentLevel; i > itemLevel; i--) {
+                    listStack.pop();
+                }
+            }
+            
+            currentLevel = itemLevel;
+            listStack[listStack.length - 1].appendChild(item);
+        });
+    });
+    
+    const htmlContent = clonedContent.innerHTML;
+    const plainText = generatePlainTextWithIndent(clonedContent);
 
     // Copy as rich text (HTML) so formatting is preserved when pasting
     const clipboardItem = new ClipboardItem({
@@ -792,6 +848,46 @@ function copyBlogContent(button) {
     });
 }
 
+function generatePlainTextWithIndent(element) {
+    let text = '';
+    
+    function processNode(node, indent = 0) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            text += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const tag = node.tagName.toLowerCase();
+            
+            if (tag === 'p' || tag === 'div') {
+                Array.from(node.childNodes).forEach(child => processNode(child, indent));
+                text += '\n';
+            } else if (tag === 'br') {
+                text += '\n';
+            } else if (tag === 'ul' || tag === 'ol') {
+                Array.from(node.children).forEach((li, index) => {
+                    const prefix = tag === 'ol' ? `${index + 1}. ` : '• ';
+                    text += '    '.repeat(indent) + prefix;
+                    Array.from(li.childNodes).forEach(child => {
+                        if (child.tagName === 'UL' || child.tagName === 'OL') {
+                            text += '\n';
+                            processNode(child, indent + 1);
+                        } else {
+                            processNode(child, indent);
+                        }
+                    });
+                    if (!text.endsWith('\n')) text += '\n';
+                });
+            } else if (tag === 'li') {
+                Array.from(node.childNodes).forEach(child => processNode(child, indent));
+            } else {
+                Array.from(node.childNodes).forEach(child => processNode(child, indent));
+            }
+        }
+    }
+    
+    processNode(element);
+    return text.trim();
+}
+
 function copyTaigaUrl(button, url) {
     navigator.clipboard.writeText(url).then(() => {
         button.classList.add('copied');
@@ -799,7 +895,19 @@ function copyTaigaUrl(button, url) {
         textSpan.textContent = 'คัดลอกแล้ว';
         setTimeout(() => {
             button.classList.remove('copied');
-            textSpan.textContent = 'คัดลอก';
+            textSpan.textContent = 'URL';
+        }, 2000);
+    });
+}
+
+function copyTaigaTitle(button, title) {
+    navigator.clipboard.writeText(title).then(() => {
+        button.classList.add('copied');
+        const textSpan = button.querySelector('.copy-text');
+        textSpan.textContent = 'คัดลอกแล้ว';
+        setTimeout(() => {
+            button.classList.remove('copied');
+            textSpan.textContent = 'ชื่อ';
         }, 2000);
     });
 }
@@ -907,7 +1015,7 @@ function markAsDone() {
                 appData.selectedProjects = [];
                 taskImages = []; // Clear images after saving
                 createConfetti();
-                goBack();
+                goBack(false);
 
                 document.getElementById('summarySection').style.display = 'none';
                 document.getElementById('inputSection').style.display = 'block';
@@ -938,7 +1046,7 @@ function markAsDone() {
     // Trigger confetti effect
     createConfetti();
 
-    goBack();
+    goBack(false);
     updateStats();
     renderHeatmap();
     renderTaskImageGallery(); // Clear the image gallery display
@@ -1080,11 +1188,10 @@ function deleteAllData() {
     showToast('ลบข้อมูลทั้งหมดเรียบร้อยแล้ว');
 }
 
-function goBack() {
+function goBack(shouldFocus = true) {
     document.getElementById('inputSection').classList.remove('hidden');
     document.getElementById('summarySection').classList.remove('active');
     renderProjects();
-    updateTemplate();
     updateSubmitButton();
 
     // 1. Switch visibility
@@ -1096,6 +1203,17 @@ function goBack() {
         top: 0,
         behavior: 'smooth'
     });
+
+    // 3. Focus on the template editor (only when going back to edit)
+    if (shouldFocus) {
+        setTimeout(() => {
+            if (tasksQuill) {
+                tasksQuill.focus();
+            } else {
+                document.getElementById('tasksTextareaFallback').focus();
+            }
+        }, 300);
+    }
 }
 
 function handleSettingsProfileImage(event) {
@@ -1118,7 +1236,7 @@ function handleSettingsProfileImage(event) {
     reader.readAsDataURL(file);
 }
 
-function openSettings() {
+function openSettings(tab = 'personal') {
     document.getElementById('settingsModal').classList.add('active');
     // Initialize template editor when modal opens
     setTimeout(() => {
@@ -1136,6 +1254,21 @@ function openSettings() {
     }
 
     renderProjectList();
+    
+    // Switch to specified tab
+    switchSettingsTab(tab);
+    
+    // If opening projects tab, scroll to form section
+    if (tab === 'projects') {
+        setTimeout(() => {
+            const formSection = document.getElementById('projectFormSection');
+            if (formSection) {
+                formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Focus on the first input
+                document.getElementById('newProjectName').focus();
+            }
+        }, 150);
+    }
 }
 
 function closeSettings() {

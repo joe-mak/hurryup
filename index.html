@@ -583,32 +583,34 @@
                     <div class="settings-tab" id="tabProjects">
                         <div class="project-list" id="projectList"></div>
 
-                        <h4 style="font-size: 14px; margin-bottom: 12px;" id="projectFormTitle">เพิ่มโครงการใหม่</h4>
-                        <div class="form-group">
-                            <label class="form-label">ชื่อโครงการ</label>
-                            <input type="text" class="form-input" id="newProjectName" placeholder="เช่น BMS DesignKit">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Taiga URL</label>
-                            <input type="text" class="form-input" id="newProjectUrl"
-                                placeholder="https://taiga.example.com/project/...">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">เทมเพลตรายงาน</label>
-                            <div id="templateEditorContainer" style="display:none;">
-                                <div id="templateEditor"></div>
+                        <div id="projectFormSection">
+                            <h4 style="font-size: 14px; margin-bottom: 12px;" id="projectFormTitle">เพิ่มโครงการใหม่</h4>
+                            <div class="form-group">
+                                <label class="form-label">ชื่อโครงการ</label>
+                                <input type="text" class="form-input" id="newProjectName" placeholder="เช่น BMS DesignKit">
                             </div>
-                            <!-- Fallback textarea if Quill fails to load -->
-                            <textarea id="templateTextareaFallback" class="form-textarea"
-                                placeholder="โครงการ: {project} ประกอบไปด้วยผลการดำเนินงาน ดังนี้&#10;1. &#10;2. &#10;3."></textarea>
-                            <p class="form-hint">ใช้ <code
-                                    style="background: #e5edf5; padding: 2px 6px; border-radius: 3px; color: #194987;">{project}</code>
-                                แทนชื่อโครงการ</p>
-                        </div>
-                        <div class="btn-group">
-                            <button class="btn-secondary" onclick="cancelEditProject()" id="cancelEditBtn"
-                                style="display: none;">ยกเลิก</button>
-                            <button class="btn-primary" onclick="saveProject()" id="saveProjectBtn">เพิ่มโครงการ</button>
+                            <div class="form-group">
+                                <label class="form-label">Taiga URL</label>
+                                <input type="text" class="form-input" id="newProjectUrl"
+                                    placeholder="https://taiga.example.com/project/...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">เทมเพลตรายงาน</label>
+                                <div id="templateEditorContainer" style="display:none;">
+                                    <div id="templateEditor"></div>
+                                </div>
+                                <!-- Fallback textarea if Quill fails to load -->
+                                <textarea id="templateTextareaFallback" class="form-textarea"
+                                    placeholder="โครงการ: {project} ประกอบไปด้วยผลการดำเนินงาน ดังนี้&#10;1. &#10;2. &#10;3."></textarea>
+                                <p class="form-hint">ใช้ <code
+                                        style="background: #e5edf5; padding: 2px 6px; border-radius: 3px; color: #194987;">{project}</code>
+                                    แทนชื่อโครงการ</p>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn-secondary" onclick="cancelEditProject()" id="cancelEditBtn"
+                                    style="display: none;">ยกเลิก</button>
+                                <button class="btn-primary" onclick="saveProject()" id="saveProjectBtn">เพิ่มโครงการ</button>
+                            </div>
                         </div>
                     </div>
                 </div>
