@@ -581,17 +581,17 @@ body {
 }
 
 .stat-illustration-1 {
-    background-image: url('/assets/all-project.svg');
+    background-image: url('assets/all-project.svg');
 }
 
 .stat-illustration-2 {
-    background-image: url('/assets/heatmap-count.svg');
+    background-image: url('assets/heatmap-count.svg');
     width: 164px;
     height: 123px;
 }
 
 .stat-illustration-3 {
-    background-image: url('/assets/today-status.svg');
+    background-image: url('assets/today-status.svg');
 }
 
 .main-card {
@@ -1999,7 +1999,7 @@ body {
     bottom: 0;
     width: 70%;
     height: 100%;
-    background-image: url('/assets/morning-template.svg');
+    background-image: url('assets/morning-template.svg');
     background-repeat: no-repeat;
     background-position: center;
     background-size: cover;
