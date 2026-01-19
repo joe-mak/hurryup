@@ -2116,8 +2116,48 @@ body {
 .confirm-message {
     font-size: 14px;
     color: #666;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     line-height: 1.6;
+}
+
+.confirm-input-section {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.confirm-input-label {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.confirm-input-label strong {
+    color: #c00;
+}
+
+.confirm-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.confirm-input:focus {
+    outline: none;
+    border-color: #c00;
+}
+
+.btn-delete-confirm {
+    background: #ccc !important;
+    cursor: not-allowed;
+}
+
+.btn-delete-confirm:not(:disabled) {
+    background: #c00 !important;
+    cursor: pointer;
 }
 
 .confirm-actions {
@@ -2171,18 +2211,33 @@ body {
 }
 
 /* Export Zone Styles */
+/* Data Management Row */
+.data-management-row {
+    display: flex;
+    gap: 16px;
+}
+
 .export-zone {
+    flex: 1;
     background: #f0f7ff;
     border: 1px solid #b8d4f0;
     border-radius: 12px;
-    padding: 20px;
+    padding: 16px;
 }
 
-.export-zone-description {
-    font-size: 13px;
+.import-zone {
+    flex: 1;
+    background: #f0fff4;
+    border: 1px solid #a3e4b8;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.zone-description {
+    font-size: 12px;
     color: #666;
-    margin-bottom: 16px;
-    line-height: 1.6;
+    margin-bottom: 12px;
+    line-height: 1.5;
 }
 
 .btn-export {
@@ -2191,7 +2246,7 @@ body {
     justify-content: center;
     gap: 8px;
     width: 100%;
-    padding: 12px 20px;
+    padding: 10px 16px;
     background: #194987;
     color: white;
     border: none;
@@ -2205,6 +2260,28 @@ body {
 
 .btn-export:hover {
     background: #0f3260;
+}
+
+.btn-import {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    background: #2e7d32;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-import:hover {
+    background: #1b5e20;
 }
 
 /* Report View Modal Styles */

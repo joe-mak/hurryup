@@ -547,18 +547,34 @@
 
                         <div class="settings-divider"></div>
 
-                        <!-- Export Data Section -->
-                        <div class="export-zone">
-                            <div class="settings-section-title">ส่งออกข้อมูล</div>
-                            <p class="export-zone-description">ดาวน์โหลดข้อมูลทั้งหมดของคุณเป็นไฟล์ JSON รวมถึงโปรไฟล์ โครงการ และประวัติการรายงาน</p>
-                            <button class="btn-export" onclick="exportData()">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                </svg>
-                                ส่งออกข้อมูล
-                            </button>
+                        <!-- Export & Import Data Section -->
+                        <div class="data-management-row">
+                            <div class="export-zone">
+                                <div class="settings-section-title">ส่งออกข้อมูล</div>
+                                <p class="zone-description">ดาวน์โหลดข้อมูลทั้งหมดเป็นไฟล์ JSON</p>
+                                <button class="btn-export" onclick="exportData()">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                    ส่งออก
+                                </button>
+                            </div>
+
+                            <div class="import-zone">
+                                <div class="settings-section-title">นำเข้าข้อมูล</div>
+                                <p class="zone-description">นำเข้าข้อมูลจากไฟล์ JSON ที่สำรองไว้</p>
+                                <label class="btn-import" for="settingsImportInput">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                    </svg>
+                                    นำเข้า
+                                </label>
+                                <input type="file" id="settingsImportInput" accept=".json" onchange="importDataFromSettings(event)" style="display:none;">
+                            </div>
                         </div>
 
                         <div class="settings-divider"></div>
