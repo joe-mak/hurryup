@@ -70,16 +70,78 @@ function initTemplateQuill() {
 
 function init() {
     loadData();
+    
+    // Initialize router
+    initRouter();
+}
 
-    // Check if onboarding is complete
-    if (appData.onboardingComplete) {
-        showMainApp();
+// Router (Hash-based)
+const routes = {
+    '': 'landing',
+    '#/': 'landing',
+    '#/onboarding': 'onboarding',
+    '#/app': 'app'
+};
+
+function initRouter() {
+    // Handle hash changes (browser back/forward)
+    window.addEventListener('hashchange', handleRoute);
+    
+    // Initial route
+    handleRoute();
+}
+
+function navigate(path, replace = false) {
+    // Convert path to hash format
+    const hashPath = path.startsWith('#') ? path : '#' + path;
+    
+    if (replace) {
+        history.replaceState(null, '', hashPath);
     } else {
-        showOnboarding();
+        window.location.hash = hashPath.slice(1); // Remove leading # as location.hash adds it
+    }
+    handleRoute();
+}
+
+function handleRoute() {
+    const hash = window.location.hash || '';
+    const route = routes[hash] || routes['#' + hash] || 'landing';
+    
+    // If onboarding complete and trying to access landing/onboarding, redirect to app
+    if (appData.onboardingComplete && (route === 'landing' || route === 'onboarding')) {
+        navigate('/app', true);
+        return;
+    }
+    
+    // If onboarding not complete and trying to access app, redirect to landing
+    if (!appData.onboardingComplete && route === 'app') {
+        navigate('/', true);
+        return;
+    }
+    
+    switch (route) {
+        case 'landing':
+            showLandingPage();
+            break;
+        case 'onboarding':
+            showOnboarding();
+            break;
+        case 'app':
+            showMainApp();
+            break;
+        default:
+            showLandingPage();
     }
 }
 
+function showLandingPage() {
+    document.getElementById('landingPage').style.display = 'block';
+    document.getElementById('onboardingPage').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'none';
+}
+
 function showOnboarding() {
+    document.getElementById('landingPage').style.display = 'none';
     document.getElementById('onboardingPage').style.display = 'flex';
     document.getElementById('mainApp').style.display = 'none';
     onboardingProjects = [];
@@ -87,18 +149,150 @@ function showOnboarding() {
     renderOnboardingProjects();
 }
 
+function showImportOption() {
+    // Create import overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.id = 'importOverlay';
+    overlay.innerHTML = `
+        <div class="import-modal">
+            <button class="modal-close" onclick="closeImportOverlay()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            <div class="import-modal-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#194987" stroke-width="1.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+            </div>
+            <h3 class="import-modal-title">นำเข้าข้อมูล</h3>
+            <p class="import-modal-description">เลือกไฟล์ JSON ที่เคยส่งออกไว้จาก HurryUp เพื่อกู้คืนข้อมูลของคุณ</p>
+            <label class="btn-import-file" for="importFileInput">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                เลือกไฟล์ .json
+            </label>
+            <input type="file" id="importFileInput" accept=".json" onchange="handleImportFile(event)" style="display:none;">
+            <p class="import-modal-hint">หรือลากไฟล์มาวางที่นี่</p>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Add drag and drop support
+    const modal = overlay.querySelector('.import-modal');
+    
+    modal.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        modal.classList.add('drag-over');
+    });
+
+    modal.addEventListener('dragleave', () => {
+        modal.classList.remove('drag-over');
+    });
+
+    modal.addEventListener('drop', (e) => {
+        e.preventDefault();
+        modal.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith('.json')) {
+            processImportFile(file);
+        } else {
+            showToast('กรุณาเลือกไฟล์ .json เท่านั้น');
+        }
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            closeImportOverlay();
+        }
+    });
+}
+
+function closeImportOverlay() {
+    const overlay = document.getElementById('importOverlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+function handleImportFile(event) {
+    const file = event.target.files[0];
+    if (file) {
+        processImportFile(file);
+    }
+    event.target.value = '';
+}
+
+function processImportFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            
+            // Validate the imported data structure
+            if (!importedData.data || !importedData.data.user) {
+                showToast('ไฟล์ไม่ถูกต้อง กรุณาใช้ไฟล์สำรองจาก HurryUp');
+                return;
+            }
+
+            // Import the data
+            appData = { ...appData, ...importedData.data };
+            appData.onboardingComplete = true;
+            saveData();
+
+            // Close overlay
+            closeImportOverlay();
+
+            // Show success message
+            showToast('นำเข้าข้อมูลสำเร็จ! 🎉');
+
+            // Navigate to main app
+            setTimeout(() => {
+                navigate('/app', true);
+            }, 500);
+
+        } catch (error) {
+            console.error('Import error:', error);
+            showToast('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
+        }
+    };
+    reader.readAsText(file);
+}
+
+let mainAppInitialized = false;
+
 function showMainApp() {
+    document.getElementById('landingPage').style.display = 'none';
     document.getElementById('onboardingPage').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
-    initTasksQuill();
-    updateDateTime();
-    updateGreeting();
-    updateStats();
-    renderProjects();
-    updateProfileAvatar();
-    initStickyHeader();
-    renderHeatmap();
-    setInterval(updateDateTime, 1000);
+    
+    // Only initialize once
+    if (!mainAppInitialized) {
+        initTasksQuill();
+        updateDateTime();
+        updateGreeting();
+        updateStats();
+        renderProjects();
+        updateProfileAvatar();
+        initStickyHeader();
+        renderHeatmap();
+        setInterval(updateDateTime, 1000);
+        mainAppInitialized = true;
+    } else {
+        // Just update dynamic content
+        updateDateTime();
+        updateGreeting();
+        updateStats();
+        renderProjects();
+        renderHeatmap();
+    }
 }
 
 function initStickyHeader() {
@@ -272,8 +466,8 @@ function completeOnboarding() {
     appData.onboardingComplete = true;
 
     saveData();
-    showMainApp();
-    showToast('ยินดีต้อนรับสู่ อัปบล็อกกัน! 🎉');
+    navigate('/app', true);
+    showToast('ยินดีต้อนรับสู่ HurryUp! 🎉');
 }
 
 function loadData() {
@@ -1111,9 +1305,9 @@ function importData(event) {
             // Show success message
             showToast('นำเข้าข้อมูลสำเร็จ!');
 
-            // Redirect to main app
+            // Navigate to main app
             setTimeout(() => {
-                window.location.reload();
+                navigate('/app', true);
             }, 1000);
 
         } catch (error) {
@@ -1127,54 +1321,7 @@ function importData(event) {
     event.target.value = '';
 }
 
-function importDataFromSettings(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const importedData = JSON.parse(e.target.result);
-            
-            // Validate the imported data structure
-            if (!importedData.data || !importedData.data.user) {
-                showToast('ไฟล์ไม่ถูกต้อง กรุณาใช้ไฟล์สำรองจาก HurryUp');
-                return;
-            }
-
-            // Show confirmation dialog
-            showConfirmDialog(
-                'ยืนยันการนำเข้าข้อมูล',
-                'ข้อมูลปัจจุบันจะถูกแทนที่ด้วยข้อมูลที่นำเข้า ต้องการดำเนินการต่อหรือไม่?',
-                () => {
-                    // Import the data
-                    appData = { ...appData, ...importedData.data };
-                    appData.onboardingComplete = true;
-                    saveData();
-
-                    // Show success message
-                    showToast('นำเข้าข้อมูลสำเร็จ!');
-
-                    // Reload to apply changes
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                }
-            );
-
-        } catch (error) {
-            console.error('Import error:', error);
-            showToast('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
-        }
-    };
-    reader.readAsText(file);
-
-    // Reset file input
-    event.target.value = '';
-}
-
 function confirmDeleteAllData() {
-    const userName = appData.user.name || 'ผู้ใช้';
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay active';
     overlay.innerHTML = `
@@ -1187,41 +1334,23 @@ function confirmDeleteAllData() {
                         </svg>
                     </div>
                     <h3 class="confirm-title">ยืนยันการลบข้อมูลทั้งหมด</h3>
-                    <p class="confirm-message">ข้อมูลทั้งหมดของคุณจะถูกลบอย่างถาวร รวมถึงโปรไฟล์ โครงการ และประวัติการรายงาน</p>
-                    <div class="confirm-input-section">
-                        <p class="confirm-input-label">พิมพ์ <strong>"${userName}"</strong> เพื่อยืนยัน</p>
-                        <input type="text" class="confirm-input" id="deleteConfirmInput" placeholder="พิมพ์ชื่อของคุณ" autocomplete="off">
-                    </div>
+                    <p class="confirm-message">ข้อมูลทั้งหมดของคุณจะถูกลบอย่างถาวร รวมถึงโปรไฟล์ โครงการ และประวัติการรายงาน คุณแน่ใจหรือไม่?</p>
                     <div class="confirm-actions">
                         <button class="btn-secondary" id="confirmCancel">ยกเลิก</button>
-                        <button class="btn-primary btn-delete-confirm" id="confirmOk" disabled>ลบข้อมูล</button>
+                        <button class="btn-primary" id="confirmOk" style="background: #c00;">ลบข้อมูล</button>
                     </div>
                 </div>
             `;
     document.body.appendChild(overlay);
 
-    const input = overlay.querySelector('#deleteConfirmInput');
-    const confirmBtn = overlay.querySelector('#confirmOk');
-
-    // Enable button only when name matches
-    input.addEventListener('input', () => {
-        const isMatch = input.value.trim() === userName;
-        confirmBtn.disabled = !isMatch;
-    });
-
     overlay.querySelector('#confirmCancel').onclick = () => overlay.remove();
-    confirmBtn.onclick = () => {
-        if (input.value.trim() === userName) {
-            overlay.remove();
-            deleteAllData();
-        }
+    overlay.querySelector('#confirmOk').onclick = () => {
+        overlay.remove();
+        deleteAllData();
     };
     overlay.onclick = (e) => {
         if (e.target === overlay) overlay.remove();
     };
-
-    // Focus on input
-    setTimeout(() => input.focus(), 100);
 }
 
 function deleteAllData() {
@@ -1244,11 +1373,14 @@ function deleteAllData() {
         onboardingComplete: false
     };
 
+    // Reset main app initialized flag
+    mainAppInitialized = false;
+
     // Close settings modal
     closeSettings();
 
-    // Show onboarding page
-    showOnboarding();
+    // Navigate to landing page
+    navigate('/', true);
 
     showToast('ลบข้อมูลทั้งหมดเรียบร้อยแล้ว');
 }
