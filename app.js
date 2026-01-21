@@ -146,6 +146,41 @@ function showOnboarding() {
     document.getElementById('mainApp').style.display = 'none';
     onboardingProjects = [];
     currentStep = 1;
+    
+    // Reset step indicators for new design
+    document.querySelectorAll('.step-item').forEach((item, index) => {
+        const circle = item.querySelector('.step-circle');
+        item.classList.remove('active', 'completed');
+        circle.classList.remove('active', 'completed');
+        if (index === 0) {
+            item.classList.add('active');
+            circle.classList.add('active');
+        }
+    });
+    
+    document.querySelectorAll('.step-connector').forEach(connector => {
+        connector.classList.remove('active');
+    });
+    
+    // Reset form fields
+    document.getElementById('onboardingName').value = '';
+    document.getElementById('onboardingRole').value = '';
+    document.getElementById('onboardingWorkplace').value = '';
+    document.getElementById('onboardingProjectLabel').value = '';
+    
+    // Reset profile preview
+    const preview = document.getElementById('profilePreview');
+    if (preview) {
+        preview.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+        </svg>`;
+    }
+    
+    // Show step 1
+    document.querySelectorAll('.onboarding-step').forEach(s => s.classList.remove('active'));
+    document.getElementById('step1').classList.add('active');
+    
     renderOnboardingProjects();
 }
 
@@ -313,6 +348,24 @@ function updateProfileAvatar() {
             avatar.innerHTML = `<img src="${appData.user.profileImage}" alt="Profile">`;
         }
     });
+    
+    // Update navbar profile button
+    updateNavProfile();
+}
+
+function updateNavProfile() {
+    const navAvatar = document.getElementById('navProfileAvatar');
+    const navName = document.getElementById('navProfileName');
+    
+    if (navAvatar && appData.user.profileImage) {
+        navAvatar.innerHTML = `<img src="${appData.user.profileImage}" alt="Profile">`;
+    }
+    
+    if (navName && appData.user.name) {
+        // Show first name only or truncate if too long
+        const displayName = appData.user.name.split(' ')[0] || appData.user.name;
+        navName.textContent = displayName;
+    }
 }
 
 // Onboarding Functions
@@ -334,18 +387,24 @@ function goToStep(step) {
 
     currentStep = step;
 
-    // Update step indicators
-    document.querySelectorAll('.step').forEach((s, index) => {
-        s.classList.remove('active', 'completed');
+    // Update new step indicators
+    document.querySelectorAll('.step-item').forEach((item, index) => {
+        const circle = item.querySelector('.step-circle');
+        item.classList.remove('active', 'completed');
+        circle.classList.remove('active', 'completed');
+        
         if (index + 1 < step) {
-            s.classList.add('completed');
+            item.classList.add('completed');
+            circle.classList.add('completed');
         } else if (index + 1 === step) {
-            s.classList.add('active');
+            item.classList.add('active');
+            circle.classList.add('active');
         }
     });
 
-    document.querySelectorAll('.step-line').forEach((line, index) => {
-        line.classList.toggle('active', index + 1 < step);
+    // Update step connectors
+    document.querySelectorAll('.step-connector').forEach((connector, index) => {
+        connector.classList.toggle('active', index + 1 < step);
     });
 
     // Show current step
@@ -356,6 +415,23 @@ function goToStep(step) {
     if (step === 3) {
         updateOnboardingSummary();
     }
+}
+
+function skipToComplete() {
+    // Check if basic info is filled
+    const name = document.getElementById('onboardingName').value.trim();
+    const role = document.getElementById('onboardingRole').value.trim();
+    const workplace = document.getElementById('onboardingWorkplace').value.trim();
+    const projectLabel = document.getElementById('onboardingProjectLabel').value.trim();
+
+    if (!name || !role || !workplace || !projectLabel) {
+        showToast('กรุณากรอกข้อมูลส่วนตัวก่อน');
+        goToStep(1);
+        return;
+    }
+    
+    // Skip to complete
+    goToStep(3);
 }
 
 function handleProfileImage(event) {
@@ -370,7 +446,10 @@ function handleProfileImage(event) {
     const reader = new FileReader();
     reader.onload = function (e) {
         const imageData = e.target.result;
-        document.getElementById('profilePreview').innerHTML = `<img src="${imageData}" alt="Profile">`;
+        const preview = document.getElementById('profilePreview');
+        if (preview) {
+            preview.innerHTML = `<img src="${imageData}" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        }
         appData.user.profileImage = imageData;
     };
     reader.readAsDataURL(file);
@@ -413,7 +492,6 @@ function renderOnboardingProjects() {
     container.innerHTML = '';
 
     if (onboardingProjects.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">ยังไม่มีโครงการ</p>';
         return;
     }
 
@@ -439,16 +517,14 @@ function renderOnboardingProjects() {
 function updateOnboardingSummary() {
     const name = document.getElementById('onboardingName').value.trim();
     const role = document.getElementById('onboardingRole').value.trim();
-    const workplace = document.getElementById('onboardingWorkplace').value.trim();
 
     document.getElementById('summaryName').textContent = name || '-';
     document.getElementById('summaryRole').textContent = role || '-';
-    document.getElementById('summaryWorkplace').textContent = workplace || '-';
-    document.getElementById('summaryProjectsCount').textContent = `${onboardingProjects.length} โครงการ`;
+    document.getElementById('summaryProjectsCount').textContent = onboardingProjects.length;
 
     // Update avatar
     if (appData.user.profileImage) {
-        document.getElementById('summaryAvatar').innerHTML = `<img src="${appData.user.profileImage}" alt="Profile">`;
+        document.getElementById('summaryAvatar').innerHTML = `<img src="${appData.user.profileImage}" alt="Profile" style="width:100%;height:100%;object-fit:cover;">`;
     }
 }
 
@@ -1428,6 +1504,8 @@ function handleSettingsProfileImage(event) {
         document.getElementById('settingsProfilePreview').innerHTML = `<img src="${imageData}" alt="Profile" style="width:100%;height:100%;object-fit:cover;">`;
         appData.user.profileImage = imageData;
         saveData();
+        updateNavProfile();
+        updateProfileAvatar();
         showToast('อัปเดตรูปโปรไฟล์แล้ว');
     };
     reader.readAsDataURL(file);
@@ -1480,6 +1558,7 @@ function saveUserSettings() {
     appData.user.projectLabel = document.getElementById('settingsProjectLabel').value || '';
     saveData();
     updateGreeting();
+    updateNavProfile();
     showToast('บันทึกข้อมูลส่วนตัวแล้ว');
 }
 

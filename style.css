@@ -79,6 +79,7 @@ body {
 .landing-hero {
     display: flex;
     justify-content: center;
+    align-items: flex-start;
     gap: 60px;
     padding: 80px 60px 80px;
     max-width: 1200px;
@@ -86,8 +87,8 @@ body {
 }
 
 .landing-illustration {
-    flex: 1;
-    max-width: 550px;
+    flex: 0 0 480px;
+    width: 480px;
 }
 
 .landing-illustration img {
@@ -162,16 +163,20 @@ body {
 
     .landing-hero {
         flex-direction: column;
+        align-items: center;
         padding: 24px;
         gap: 40px;
     }
 
     .landing-illustration {
+        flex: 0 0 auto;
+        width: 100%;
         max-width: 400px;
     }
 
     .landing-content {
         text-align: center;
+        max-width: 100%;
     }
 
     .landing-title {
@@ -275,124 +280,518 @@ body {
 }
 
 /* Onboarding Page Styles */
+/* ============================================
+   NEW ONBOARDING PAGE DESIGN
+   ============================================ */
+
 .onboarding-page {
     min-height: 100vh;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+    flex-direction: column;
+    background-color: #fff;
+
 }
 
 .onboarding-page.hidden {
     display: none;
 }
 
-.onboarding-container {
+/* Onboarding Content - Split Layout (Exactly same as Landing Hero) */
+.onboarding-content {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 60px;
+    padding: 80px 60px 80px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Left Side - Illustration (Exactly same as Landing Page) */
+.onboarding-illustration .illustration-main {
+    width: 100%;
+    height: auto;
+}
+
+/* Right Side - Form Card */
+.onboarding-form-wrapper {
+    flex: 1;
+    max-width: 480px;
+}
+
+.onboarding-card {
     background: white;
     border-radius: 20px;
-    padding: 40px;
-    width: 100%;
-    max-width: 560px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    border: .5px solid #D1D1D1;
+    padding: 32px;
+    width: 480px;
+    max-width: 100%;
+    opacity: 0;
+    transform: translateY(30px);
+    animation: cardSlideIn 0.5s ease-out forwards;
+    animation-delay: 0.1s;
 }
 
-.onboarding-header {
-    text-align: center;
-    margin-bottom: 32px;
+@keyframes cardSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.onboarding-header .logo {
-    justify-content: center;
-    margin-bottom: 12px;
+/* Left Side - Illustration */
+.onboarding-illustration {
+    flex: 0 0 480px;
+    width: 480px;
 }
 
-.onboarding-subtitle {
-    color: #666;
-    font-size: 14px;
-}
-
-/* Step Indicator */
-.step-indicator {
+/* New Step Indicator */
+.step-indicator-new {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 40px;
-    gap: 8px;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #f0f0f0;
 }
 
-.step {
+.step-item {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    flex: 1;
 }
 
-.step-number {
-    width: 36px;
-    height: 36px;
+.step-circle {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: #e5e5e5;
-    color: #999;
+    background: #f5f5f5;
+    border: 2px solid #e5e5e5;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 600;
-    font-size: 14px;
+    color: #999;
     transition: all 0.3s;
 }
 
-.step.active .step-number,
-.step.completed .step-number {
+.step-circle.active {
     background: #194987;
+    border-color: #194987;
     color: white;
 }
 
-.step-label {
-    font-size: 12px;
+.step-circle.completed {
+    background: #27ae60;
+    border-color: #27ae60;
+    color: white;
+}
+
+.step-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.step-number-label {
+    font-size: 11px;
     color: #999;
-    transition: color 0.3s;
 }
 
-.step.active .step-label,
-.step.completed .step-label {
+.step-item.active .step-number-label {
     color: #194987;
-    font-weight: 500;
 }
 
-.step-line {
-    width: 40px;
+.step-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #666;
+    text-align: center;
+}
+
+.step-item.active .step-name {
+    color: #194987;
+}
+
+.step-connector {
+    flex: 0.5;
     height: 2px;
     background: #e5e5e5;
+    margin-top: 22px;
+}
+
+.step-connector.active {
+    background: #194987;
+}
+
+/* Form Grid */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
     margin-bottom: 20px;
 }
 
-.step-line.active {
+.form-grid .form-group:nth-child(3),
+.form-grid .form-group:nth-child(4) {
+    grid-column: span 1;
+}
+
+/* Compact Profile Upload */
+.profile-upload-compact {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    margin-bottom: 24px;
+}
+
+.profile-preview-small {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #e5edf5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.profile-preview-small img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.upload-btn-compact {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    font-family: 'Google Sans', 'Google Sans Text', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.upload-btn-compact:hover {
+    background: #f5f5f5;
+    border-color: #d5d5d5;
+}
+
+/* New Onboarding Actions */
+.onboarding-actions-new {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-primary-new {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
     background: #194987;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Google Sans', 'Google Sans Text', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary-new:hover {
+    background: #0d3a6e;
+}
+
+.btn-primary-new.btn-large-new {
+    padding: 14px 32px;
+    font-size: 15px;
+}
+
+.btn-secondary-new {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: white;
+    color: #666;
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+    font-family: 'Google Sans', 'Google Sans Text', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary-new:hover {
+    background: #f5f5f5;
+    border-color: #d5d5d5;
+}
+
+.btn-back-new {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: transparent;
+    color: #666;
+    border: none;
+    font-family: 'Google Sans', 'Google Sans Text', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-back-new:hover {
+    color: #333;
+}
+
+/* Projects List New */
+.projects-list-new {
+    margin-bottom: 20px;
+}
+
+.projects-list-new:empty {
+    display: none;
+}
+
+.add-project-form-new {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.btn-add-project-new {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    background: white;
+    border: 1px dashed #d5d5d5;
+    border-radius: 10px;
+    color: #666;
+    font-family: 'Google Sans', 'Google Sans Text', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 16px;
+}
+
+.btn-add-project-new:hover {
+    background: #f0f0f0;
+    border-color: #194987;
+    color: #194987;
+}
+
+/* Complete Step New */
+.complete-content {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.complete-icon-new {
+    width: 80px;
+    height: 80px;
+    background: #e5edf5;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+}
+
+.complete-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 8px;
+}
+
+.complete-description {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 24px;
+}
+
+.summary-card-new {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    text-align: left;
+}
+
+.summary-profile-new {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.summary-avatar-new {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #e5edf5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.summary-avatar-new img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.summary-name-new {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.summary-role-new {
+    font-size: 13px;
+    color: #666;
+}
+
+.summary-stats {
+    text-align: center;
+}
+
+.summary-stat .stat-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: #194987;
+    display: block;
+}
+
+.summary-stat .stat-label {
+    font-size: 12px;
+    color: #666;
 }
 
 /* Onboarding Steps */
 .onboarding-step {
     display: none;
+    opacity: 0;
 }
 
 .onboarding-step.active {
     display: block;
+    animation: stepFadeIn 0.3s ease-out forwards;
 }
 
-.step-title {
-    font-size: 24px;
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: #1a1a1a;
+@keyframes stepFadeIn {
+    0% {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
-.step-description {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 32px;
+/* Responsive (Same breakpoints as Landing Page) */
+@media (max-width: 900px) {
+    .onboarding-content {
+        flex-direction: column;
+        align-items: center;
+        padding: 24px;
+        gap: 40px;
+    }
+
+    .onboarding-illustration {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .onboarding-form-wrapper {
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .onboarding-card {
+        width: 100%;
+    }
 }
 
-/* Profile Upload */
+@media (max-width: 640px) {
+    .onboarding-card {
+        padding: 24px 20px;
+    }
+
+    .step-indicator-new {
+        gap: 8px;
+    }
+
+    .step-circle {
+        width: 36px;
+        height: 36px;
+    }
+
+    .step-name {
+        font-size: 11px;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .onboarding-actions-new {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .action-buttons {
+        width: 100%;
+    }
+
+    .btn-primary-new,
+    .btn-secondary-new {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .onboarding-illustration {
+        display: none;
+    }
+}
+
+/* Profile Upload (old style - kept for compatibility) */
 .profile-upload {
     display: flex;
     align-items: center;
@@ -466,9 +865,12 @@ body {
 }
 
 @keyframes pulse-highlight {
-    0%, 100% {
+
+    0%,
+    100% {
         box-shadow: 0 0 0 0 rgba(25, 73, 135, 0.4);
     }
+
     50% {
         box-shadow: 0 0 0 10px rgba(25, 73, 135, 0);
     }
@@ -750,22 +1152,61 @@ body {
     font-weight: 600;
 }
 
-.settings-btn {
+/* Profile Button in Navbar */
+.profile-btn {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    background: #f5f5f5;
+    gap: 10px;
+    padding: 6px 12px 6px 6px;
+    background: #f8f9fa;
     border: 1px solid #e5e5e5;
-    border-radius: 8px;
+    border-radius: 100px;
     cursor: pointer;
     font-family: inherit;
     font-size: 14px;
+    font-weight: 500;
+    color: #333;
     transition: all 0.2s;
 }
 
-.settings-btn:hover {
-    background: #eeeeee;
+.profile-btn:hover {
+    background: #f0f0f0;
+    border-color: #d5d5d5;
+}
+
+.profile-btn-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #e5edf5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.profile-btn-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-btn-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profile-btn-arrow {
+    color: #666;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.profile-btn:hover .profile-btn-arrow {
+    transform: translateY(2px);
 }
 
 .settings-icon {
@@ -1901,7 +2342,9 @@ body {
     text-align: justify;
 }
 
-.blog-content h1, .blog-content h2, .blog-content h3 {
+.blog-content h1,
+.blog-content h2,
+.blog-content h3 {
     margin: 0.5em 0;
     font-weight: 600;
 }
@@ -2549,16 +2992,16 @@ body {
 
 .morning-template-bg {
     position: absolute;
-    top: 60%;
-    left: 60%;
-    transform: translate(-50%, -50%);
+    bottom: 0;
+    right: 200px;
+    top: 20px;
     width: 20%;
     height: 100%;
     background-image: url('assets/female-morning-template.svg');
     background-repeat: no-repeat;
     background-position: center;
-    background-size: contain;
-    opacity: 0.8;
+    background-size: cover;
+    opacity: 1;
 }
 
 .morning-template-content {
