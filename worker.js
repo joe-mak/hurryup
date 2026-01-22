@@ -5,7 +5,7 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 // CORS headers for your domain
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Change to your domain in production, e.g., 'https://yourdomain.com'
+  'Access-Control-Allow-Origin': '*', // Change to your domain in production
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
@@ -26,6 +26,17 @@ export default {
     }
 
     try {
+      // Check if API key is configured
+      if (!env.ANTHROPIC_API_KEY) {
+        return new Response(JSON.stringify({ 
+          error: 'API key not configured',
+          details: 'Please add ANTHROPIC_API_KEY in Worker Settings > Variables'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       const body = await request.json();
       
       // Validate request has content
@@ -41,7 +52,7 @@ export default {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': env.ANTHROPIC_API_KEY, // Set in Cloudflare dashboard
+          'x-api-key': env.ANTHROPIC_API_KEY,
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
@@ -68,6 +79,17 @@ ${body.content}
 
       const data = await response.json();
 
+      // Check for API errors
+      if (!response.ok) {
+        return new Response(JSON.stringify({ 
+          error: 'Anthropic API error',
+          details: data.error?.message || JSON.stringify(data)
+        }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       // Return the improved text
       if (data.content && data.content[0]) {
         return new Response(JSON.stringify({ 
@@ -76,7 +98,13 @@ ${body.content}
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       } else {
-        throw new Error('Invalid API response');
+        return new Response(JSON.stringify({ 
+          error: 'Invalid API response',
+          details: 'No content in response'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
       }
 
     } catch (error) {
