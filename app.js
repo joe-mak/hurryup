@@ -20,6 +20,7 @@ let currentStep = 1;
 let editingProjectId = null;
 let tasksQuill = null;
 let templateQuill = null;
+let selectedHeatmapYear = new Date().getFullYear();
 
 
 
@@ -754,10 +755,10 @@ function renderHeatmap() {
     grid.innerHTML = '';
     monthsContainer.innerHTML = '';
 
-    // Fixed year 2026: Jan 1 to Dec 31
-    const year = 2026;
-    const startDate = new Date(year, 0, 1); // Jan 1, 2026
-    const endDate = new Date(year, 11, 31); // Dec 31, 2026
+    // Use selected year
+    const year = selectedHeatmapYear;
+    const startDate = new Date(year, 0, 1); // Jan 1
+    const endDate = new Date(year, 11, 31); // Dec 31
     const today = new Date();
     today.setHours(23, 59, 59, 999); // Include all of today
 
@@ -773,11 +774,12 @@ function renderHeatmap() {
     const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
         'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
-    // Jan 1, 2026 is Thursday (day 4)
+    // Calculate first day of week for the year
     const firstDayOfWeek = startDate.getDay();
 
-    // Total days in year 2026
-    const totalDays = 365;
+    // Calculate total days in year (handle leap year)
+    const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+    const totalDays = isLeapYear ? 366 : 365;
     const totalWeeks = Math.ceil((totalDays + firstDayOfWeek) / 7);
 
     // Create weeks
@@ -846,6 +848,39 @@ function renderHeatmap() {
         monthLabel.style.left = (weekOfMonth * 15) + 'px';
         monthsContainer.appendChild(monthLabel);
     }
+
+    // Update year selector UI
+    updateYearSelector();
+}
+
+// Year selector functions
+function changeHeatmapYear(delta) {
+    const newYear = selectedHeatmapYear + delta;
+    if (newYear >= 2023 && newYear <= 2026) {
+        selectedHeatmapYear = newYear;
+        renderHeatmap();
+    }
+}
+
+function setHeatmapYear(year) {
+    const yearNum = parseInt(year);
+    if (yearNum >= 2023 && yearNum <= 2026) {
+        selectedHeatmapYear = yearNum;
+        renderHeatmap();
+    }
+}
+
+function updateYearSelector() {
+    const yearButtons = document.querySelectorAll('.year-btn');
+    
+    yearButtons.forEach(btn => {
+        const btnYear = parseInt(btn.getAttribute('data-year'));
+        if (btnYear === selectedHeatmapYear) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
 }
 
 function viewReportByDate(date) {

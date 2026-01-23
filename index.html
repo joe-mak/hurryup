@@ -301,36 +301,46 @@
                 </section>
 
                 <!-- Heatmap Calendar Section -->
-                <section class="heatmap-card">
-                    <div class="heatmap-header">
-                        <h3 class="heatmap-title">ปฏิทินการอัปบล็อก</h3>
-                        <div class="heatmap-legend">
-                            <span class="legend-label">น้อย</span>
-                            <div class="legend-scale">
-                                <div class="legend-box level-0"></div>
-                                <div class="legend-box level-1"></div>
-                                <div class="legend-box level-2"></div>
-                                <div class="legend-box level-3"></div>
+                <div class="heatmap-section">
+                    <section class="heatmap-card">
+                        <div class="heatmap-header">
+                            <h3 class="heatmap-title">ปฏิทินการอัปบล็อก</h3>
+                                <div class="heatmap-legend">
+                                <span class="legend-label">น้อย</span>
+                                <div class="legend-scale">
+                                    <div class="legend-box level-0"></div>
+                                    <div class="legend-box level-1"></div>
+                                    <div class="legend-box level-2"></div>
+                                    <div class="legend-box level-3"></div>
+                                </div>
+                                <span class="legend-label">มาก</span>
                             </div>
-                            <span class="legend-label">มาก</span>
+                        </div>
+                        <div class="heatmap-container">
+                            <div class="heatmap-months" id="heatmapMonths"></div>
+                            <div class="heatmap-wrapper heatmap-grid-layout">
+                                <div class="heatmap-days">
+                                    <span>อา.</span>
+                                    <span>จ.</span>
+                                    <span>อ.</span>
+                                    <span>พ.</span>
+                                    <span>พฤ.</span>
+                                    <span>ศ.</span>
+                                    <span>ส.</span>
+                                </div>
+                                <div class="heatmap-grid" id="heatmapGrid"></div>
+                            </div>
+                        </div>
+                    </section>
+                    <div class="heatmap-year-card">
+                        <div class="heatmap-year-list" id="heatmapYearList">
+                            <button class="year-btn active" data-year="2026" onclick="setHeatmapYear(2026)">2026</button>
+                            <button class="year-btn" data-year="2025" onclick="setHeatmapYear(2025)">2025</button>
+                            <button class="year-btn" data-year="2024" onclick="setHeatmapYear(2024)">2024</button>
+                            <button class="year-btn" data-year="2023" onclick="setHeatmapYear(2023)">2023</button>
                         </div>
                     </div>
-                    <div class="heatmap-container">
-                        <div class="heatmap-months" id="heatmapMonths"></div>
-                        <div class="heatmap-wrapper">
-                            <div class="heatmap-days">
-                                <span>อา.</span>
-                                <span>จ.</span>
-                                <span>อ.</span>
-                                <span>พ.</span>
-                                <span>พฤ.</span>
-                                <span>ศ.</span>
-                                <span>ส.</span>
-                            </div>
-                            <div class="heatmap-grid" id="heatmapGrid"></div>
-                        </div>
-                    </div>
-                </section>
+                </div>
                 
                 <!-- Progress & Morning Template Row -->
                 <div class="progress-template-row">
