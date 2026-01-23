@@ -444,13 +444,15 @@ function handleProfileImage(event) {
     }
 
     const reader = new FileReader();
-    reader.onload = function (e) {
+    reader.onload = async function (e) {
         const imageData = e.target.result;
+        // Compress profile image (smaller size for profile)
+        const compressedImage = await compressImage(imageData, 400, 0.8);
         const preview = document.getElementById('profilePreview');
         if (preview) {
-            preview.innerHTML = `<img src="${imageData}" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            preview.innerHTML = `<img src="${compressedImage}" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
         }
-        appData.user.profileImage = imageData;
+        appData.user.profileImage = compressedImage;
     };
     reader.readAsDataURL(file);
 }
@@ -570,7 +572,92 @@ function loadData() {
 }
 
 function saveData() {
-    localStorage.setItem('dailyReportData', JSON.stringify(appData));
+    try {
+        localStorage.setItem('dailyReportData', JSON.stringify(appData));
+    } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+            // Try to free up space by removing old report images
+            const cleaned = cleanOldReportImages();
+            if (cleaned) {
+                try {
+                    localStorage.setItem('dailyReportData', JSON.stringify(appData));
+                    showToast('พื้นที่เก็บข้อมูลเต็ม - ลบรูปภาพเก่าบางส่วนแล้ว');
+                    return;
+                } catch (e2) {
+                    // Still failing, try more aggressive cleanup
+                    cleanAllReportImages();
+                    try {
+                        localStorage.setItem('dailyReportData', JSON.stringify(appData));
+                        showToast('พื้นที่เก็บข้อมูลเต็ม - ลบรูปภาพทั้งหมดแล้ว');
+                        return;
+                    } catch (e3) {
+                        showToast('ไม่สามารถบันทึกได้ - พื้นที่เก็บข้อมูลเต็ม กรุณาลบข้อมูลเก่า');
+                    }
+                }
+            } else {
+                showToast('ไม่สามารถบันทึกได้ - พื้นที่เก็บข้อมูลเต็ม กรุณาลบข้อมูลเก่า');
+            }
+        } else {
+            console.error('Error saving data:', e);
+            showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+        }
+    }
+}
+
+// Clean images from reports older than 30 days
+function cleanOldReportImages() {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    let cleaned = false;
+    appData.reports.forEach(report => {
+        if (report.images && report.images.length > 0) {
+            const reportDate = new Date(report.date);
+            if (reportDate < thirtyDaysAgo) {
+                report.images = [];
+                cleaned = true;
+            }
+        }
+    });
+    return cleaned;
+}
+
+// Clean all report images as last resort
+function cleanAllReportImages() {
+    appData.reports.forEach(report => {
+        if (report.images) {
+            report.images = [];
+        }
+    });
+}
+
+// Compress image to reduce storage size
+function compressImage(base64String, maxWidth = 800, quality = 0.7) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            
+            // Scale down if larger than maxWidth
+            if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Convert to JPEG for better compression
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(base64String); // Return original if error
+        img.src = base64String;
+    });
 }
 
 function updateDateTime() {
@@ -983,6 +1070,14 @@ ${tasksPlainText}`;
                                 </svg>
                                 <span class="copy-text">URL</span>
                             </button>
+                            <button class="taiga-open-btn" onclick="openTaigaUrl('${escapeHtml(project.taigaUrl).replace(/'/g, "\\'")}')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                                </svg>
+                                <span class="copy-text">เปิด</span>
+                            </button>
                         </div>
                     `;
             taigaContainer.appendChild(item);
@@ -1180,6 +1275,12 @@ function copyTaigaTitle(button, title) {
             textSpan.textContent = 'ชื่อ';
         }, 2000);
     });
+}
+
+function openTaigaUrl(url) {
+    if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
 }
 
 function createConfetti() {
@@ -1499,10 +1600,12 @@ function handleSettingsProfileImage(event) {
     }
 
     const reader = new FileReader();
-    reader.onload = function (e) {
+    reader.onload = async function (e) {
         const imageData = e.target.result;
-        document.getElementById('settingsProfilePreview').innerHTML = `<img src="${imageData}" alt="Profile" style="width:100%;height:100%;object-fit:cover;">`;
-        appData.user.profileImage = imageData;
+        // Compress profile image
+        const compressedImage = await compressImage(imageData, 400, 0.8);
+        document.getElementById('settingsProfilePreview').innerHTML = `<img src="${compressedImage}" alt="Profile" style="width:100%;height:100%;object-fit:cover;">`;
+        appData.user.profileImage = compressedImage;
         saveData();
         updateNavProfile();
         updateProfileAvatar();
@@ -1951,10 +2054,12 @@ function processTaskImage(file) {
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         const imageData = e.target.result;
+        // Compress image before storing
+        const compressedImage = await compressImage(imageData, 800, 0.7);
         const imageId = Date.now() + Math.random().toString(36).substr(2, 9);
-        taskImages.push({ id: imageId, data: imageData });
+        taskImages.push({ id: imageId, data: compressedImage });
         renderTaskImageGallery();
         showToast('เพิ่มรูปภาพแล้ว');
     };

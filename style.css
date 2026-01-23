@@ -49,8 +49,8 @@ body {
 .landing-logo .logo-icon {
     width: 40px;
     height: 40px;
-    background: linear-gradient(135deg, #194987 0%, #0f3260 100%);
     border-radius: 8px;
+    object-fit: contain;
 }
 
 .landing-logo .logo-text {
@@ -1143,8 +1143,8 @@ body {
 .logo-icon {
     width: 40px;
     height: 40px;
-    background: linear-gradient(135deg, #194987 0%, #0f3260 100%);
     border-radius: 8px;
+    object-fit: contain;
 }
 
 .logo-text {
@@ -1782,8 +1782,8 @@ body {
 .footer-logo {
     width: 32px;
     height: 32px;
-    background: linear-gradient(135deg, #194987 0%, #0f3260 100%);
     border-radius: 6px;
+    object-fit: contain;
 }
 
 .modal-overlay {
@@ -2498,6 +2498,27 @@ body {
     background: #194987;
     border-color: #194987;
     color: white;
+}
+
+.taiga-open-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #194987;
+    border: 1px solid #194987;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: white;
+    flex-shrink: 0;
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.taiga-open-btn:hover {
+    background: #0f3260;
+    border-color: #0f3260;
 }
 
 .back-btn {
